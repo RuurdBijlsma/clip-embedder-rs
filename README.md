@@ -3,7 +3,9 @@
 * To run this, you need to put the onnx file for [openai/clip-vit-large-patch14](https://huggingface.co/openai/clip-vit-large-patch14/tree/main) at `data/clip_text_encoder.onnx`.
 * You can generate this onnx file with the following Python script:
 
-Run the script with `uv run script.py`, [uv](https://docs.astral.sh/uv/getting-started/installation/) is required for this.
+Run the script below with `uv run create-onnx.py`, [uv](https://docs.astral.sh/uv/getting-started/installation/) is required for this.
+
+### `create-onnx.py:`
 
 ```python
 # /// script
