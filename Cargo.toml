@@ -1,0 +1,23 @@
+[package]
+publish = false
+name = "sentence-transformers"
+version = "0.0.0"
+edition = "2021"
+
+[dependencies]
+ort = { version="2.0.0-rc.9", features = [ "fetch-models" ] }
+ndarray = "0.16"
+tokenizers = { version = "0.21.0", default-features = false, features = [ "onig" ] }
+tracing-subscriber = { version = "0.3", default-features = false, features = [ "env-filter", "fmt" ] }
+
+ureq = { version = "3.0.2", optional = true, default-features = false, features = ["native-tls" ] }
+sha2 = { version = "0.10", optional = true }
+
+[features]
+load-dynamic = [ "ort/load-dynamic" ]
+cuda = [ "ort/cuda" ]
+
+default = [ "ort/ndarray", "ort/half", "ort/download-binaries", "ort/copy-dylibs" ]
+
+
+fetch-models = [ "ureq", "sha2" ]
