@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use ndarray::{Array2, Axis, Ix2};
+use ndarray::{Array2, Axis, Ix3};
 use ort::{
 	Error,
 	execution_providers::CUDAExecutionProvider,
@@ -8,57 +8,63 @@ use ort::{
 };
 use tokenizers::Tokenizer;
 
-/// Example usage of a text embedding model like Sentence Transformers' `all-mini-lm-l6` model for semantic textual
-/// similarity.
-///
-/// Text embedding models map sentences & paragraphs to an n-dimensional dense vector space, which can then be used for
-/// tasks like clustering or semantic search.
 fn main() -> ort::Result<()> {
-	// Initialize tracing to receive debug messages from `ort`
 	tracing_subscriber::fmt::init();
 
-	// Create the ONNX Runtime environment, enabling CUDA execution providers for all sessions created in this process.
 	ort::init()
-		.with_name("sbert")
+		.with_name("clip")
 		.with_execution_providers([CUDAExecutionProvider::default().build()])
 		.commit()?;
 
-	// Load our model
+	// Load the CLIP text encoder ONNX model
 	let session = Session::builder()?
 		.with_optimization_level(GraphOptimizationLevel::Level1)?
 		.with_intra_threads(1)?
-		.commit_from_url("https://parcel.pyke.io/v2/cdn/assetdelivery/ortrsv2/ex_models/all-MiniLM-L6-v2.onnx")?;
+		.commit_from_file("data/clip_text_encoder.onnx")?;
 
-	// Load the tokenizer and encode the text.
-	let tokenizer = Tokenizer::from_file(Path::new(env!("CARGO_MANIFEST_DIR")).join("data").join("tokenizer.json")).unwrap();
+	// Load the CLIP tokenizer
+	let tokenizer = Tokenizer::from_file(Path::new("data/tokenizer.json")).unwrap();
 
 	let inputs = vec!["The weather outside is lovely.", "It's so sunny outside!", "She drove to the stadium."];
 
-	// Encode our input strings. `encode_batch` will pad each input to be the same length.
+	// Encode the input strings
 	let encodings = tokenizer.encode_batch(inputs.clone(), false).map_err(|e| Error::new(e.to_string()))?;
 
-	// Get the padded length of each encoding.
+	// Get the padded length of each encoding
 	let padded_token_length = encodings[0].len();
 
-	// Get our token IDs & mask as a flattened array.
+	// Get token IDs and attention mask
 	let ids: Vec<i64> = encodings.iter().flat_map(|e| e.get_ids().iter().map(|i| *i as i64)).collect();
 	let mask: Vec<i64> = encodings.iter().flat_map(|e| e.get_attention_mask().iter().map(|i| *i as i64)).collect();
 
-	// Convert our flattened arrays into 2-dimensional tensors of shape [N, L].
+	// Convert to 2D arrays
 	let a_ids = Array2::from_shape_vec([inputs.len(), padded_token_length], ids).unwrap();
 	let a_mask = Array2::from_shape_vec([inputs.len(), padded_token_length], mask).unwrap();
 
-	// Run the model.
+	// Run the model
 	let outputs = session.run(ort::inputs![a_ids, a_mask]?)?;
 
-	// Extract our embeddings tensor and convert it to a strongly-typed 2-dimensional array.
-	let embeddings = outputs[1].try_extract_tensor::<f32>()?.into_dimensionality::<Ix2>().unwrap();
+	// Extract and pool the embeddings
+	// Extract the `last_hidden_state` tensor (shape: [batch_size, sequence_length, hidden_size])
+	let last_hidden_state = outputs[0]
+		.try_extract_tensor::<f32>()?
+		.into_dimensionality::<Ix3>()
+		.map_err(|e| ort::Error::new(e.to_string()))?;	let embeddings = last_hidden_state.map_axis(Axis(1), |row| row.mean().unwrap());
 
+	// Normalize and compute cosine similarity
 	println!("Similarity for '{}'", inputs[0]);
-	let query = embeddings.index_axis(Axis(0), 0);
+	// Normalize the query embedding
+	let query = embeddings.index_axis(Axis(0), 0).to_owned(); // Convert to owned array
+	let query_norm = query.iter().map(|x| x.powi(2)).sum::<f32>().sqrt();
+	let query_normalized = query / query_norm;
+
+	// Normalize and compute cosine similarity for other embeddings
 	for (embeddings, sentence) in embeddings.axis_iter(Axis(0)).zip(inputs.iter()).skip(1) {
-		// Calculate cosine similarity against the 'query' sentence.
-		let dot_product: f32 = query.iter().zip(embeddings.iter()).map(|(a, b)| a * b).sum();
+		let embeddings = embeddings.to_owned(); // Convert to owned array
+		let embedding_norm = embeddings.iter().map(|x| x.powi(2)).sum::<f32>().sqrt();
+		let embedding_normalized = embeddings / embedding_norm;
+
+		let dot_product: f32 = query_normalized.iter().zip(embedding_normalized.iter()).map(|(a, b)| a * b).sum();
 		println!("\t'{}': {:.1}%", sentence, dot_product * 100.);
 	}
 
