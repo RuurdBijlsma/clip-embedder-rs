@@ -1,6 +1,7 @@
 use anyhow::Result;
 use ndarray::{s, Array1};
 use ndarray::{Array2, ArrayView2};
+use ort::execution_providers::CUDAExecutionProvider;
 use ort::{
     session::Session,
     value::Tensor,
@@ -75,7 +76,10 @@ pub async fn text_main() -> Result<()> {
     // Load resources
     let data_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("data");
     let tokenizer = Tokenizer::from_file(data_dir.join("tokenizer.json")).map_err(|e| anyhow::anyhow!("Tokenizer error: {:?}", e))?;
-    let text_session = Session::builder()?.commit_from_file(data_dir.join("clip_text.onnx"))?;
+
+    let text_session = Session::builder()?
+        .with_execution_providers([CUDAExecutionProvider::default().build()])?
+        .commit_from_file(data_dir.join("clip_text.onnx"))?;
 
     // Example texts
     let texts = [
