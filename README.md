@@ -19,31 +19,98 @@ Run the script below with `uv run create-onnx.py`, [uv](https://docs.astral.sh/u
 # ///
 
 import torch
-from transformers import CLIPModel, CLIPProcessor
+from PIL import Image
+from transformers import CLIPProcessor, CLIPModel
 
-# Load the CLIP model and processor
-model_name = "openai/clip-vit-large-patch14"
-model = CLIPModel.from_pretrained(model_name)
-processor = CLIPProcessor.from_pretrained(model_name)
+# Load the model and processor
+model = CLIPModel.from_pretrained("openai/clip-vit-large-patch14")
+processor = CLIPProcessor.from_pretrained("openai/clip-vit-large-patch14")
 
-# Extract the text encoder
-text_encoder = model.text_model
+# Create dummy inputs
+# For text encoder
+text_inputs = processor(text=["This is a dummy text."], return_tensors="pt", padding=True)
 
-# Example input for the text encoder
-dummy_input = processor(text=["A sample text"], return_tensors="pt", padding=True)
+# For image encoder (create a dummy image)
+dummy_image = Image.new("RGB", (224, 224), color="red")
+image_inputs = processor(images=[dummy_image], return_tensors="pt", padding=True)
 
-# Export the text encoder to ONNX
+
+# Export text encoder with projection and normalization
+class CLIPTextWrapper(torch.nn.Module):
+    def __init__(self, text_model, text_projection):
+        super().__init__()
+        self.text_model = text_model
+        self.text_projection = text_projection
+
+    def forward(self, input_ids, attention_mask):
+        # Forward through text model
+        text_outputs = self.text_model(
+            input_ids=input_ids,
+            attention_mask=attention_mask
+        )
+        pooled_output = text_outputs[1]  # pooler_output
+
+        # Project and normalize
+        projected = self.text_projection(pooled_output)
+        normalized = torch.nn.functional.normalize(projected, dim=-1)
+        return normalized
+
+
+# Create wrapped text model
+text_wrapper = CLIPTextWrapper(model.text_model, model.text_projection)
+
+# Export with wrapper
 torch.onnx.export(
-    text_encoder,
-    (dummy_input["input_ids"], dummy_input["attention_mask"]),
-    "clip_text_encoder.onnx",
+    text_wrapper,
+    (text_inputs["input_ids"], text_inputs["attention_mask"]),
+    "clip_text.onnx",
+    opset_version=20,
     input_names=["input_ids", "attention_mask"],
-    output_names=["last_hidden_state"],
+    output_names=["text_embeddings"],
     dynamic_axes={
         "input_ids": {0: "batch_size", 1: "sequence_length"},
         "attention_mask": {0: "batch_size", 1: "sequence_length"},
-        "last_hidden_state": {0: "batch_size", 1: "sequence_length"},
-    },
-    opset_version=20,
+        "text_embeddings": {0: "batch_size"}
+    }
 )
+
+
+# Export image encoder
+# Export wrapper combining vision_model + projection + normalization
+class CLIPVisionWrapper(torch.nn.Module):
+    def __init__(self, vision_model, visual_projection):
+        super().__init__()
+        self.vision_model = vision_model
+        self.visual_projection = visual_projection
+
+    def forward(self, pixel_values):
+        # Forward through vision model
+        vision_outputs = self.vision_model(pixel_values=pixel_values)
+        pooled_output = vision_outputs[1]  # pooler_output
+
+        # Project and normalize
+        projected = self.visual_projection(pooled_output)
+        normalized = torch.nn.functional.normalize(projected, dim=-1)
+        return normalized
+
+
+# Create the wrapped model
+vision_wrapper = CLIPVisionWrapper(model.vision_model, model.visual_projection)
+
+# Export with the wrapper
+torch.onnx.export(
+    vision_wrapper,
+    image_inputs["pixel_values"],
+    "clip_vision.onnx",
+    opset_version=20,
+    input_names=["pixel_values"],
+    output_names=["image_embeddings"],
+    dynamic_axes={
+        "pixel_values": {0: "batch_size"},
+        "image_embeddings": {0: "batch_size"}
+    }
+)
+
+print("Exported both text and vision encoders to ONNX format!")
+
 ```
