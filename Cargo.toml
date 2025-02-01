@@ -16,8 +16,5 @@ sha2 = { version = "0.10", optional = true }
 [features]
 load-dynamic = [ "ort/load-dynamic" ]
 cuda = [ "ort/cuda" ]
-
 default = [ "ort/ndarray", "ort/half", "ort/download-binaries", "ort/copy-dylibs" ]
-
-
 fetch-models = [ "ureq", "sha2" ]

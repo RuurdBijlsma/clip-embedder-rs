@@ -18,7 +18,7 @@ fn main() -> ort::Result<()> {
 
 	// Load the CLIP text encoder ONNX model
 	let session = Session::builder()?
-		.with_optimization_level(GraphOptimizationLevel::Level1)?
+		.with_optimization_level(GraphOptimizationLevel::Level3)?
 		.with_intra_threads(1)?
 		.commit_from_file("data/clip_text_encoder.onnx")?;
 
@@ -30,26 +30,48 @@ fn main() -> ort::Result<()> {
 	// Encode the input strings
 	let encodings = tokenizer.encode_batch(inputs.clone(), false).map_err(|e| Error::new(e.to_string()))?;
 
-	// Get the padded length of each encoding
-	let padded_token_length = encodings[0].len();
+	// Get MAX sequence length across all inputs
+	let padded_token_length = encodings.iter().map(|e| e.len()).max().unwrap();
 
-	// Get token IDs and attention mask
-	let ids: Vec<i64> = encodings.iter().flat_map(|e| e.get_ids().iter().map(|i| *i as i64)).collect();
-	let mask: Vec<i64> = encodings.iter().flat_map(|e| e.get_attention_mask().iter().map(|i| *i as i64)).collect();
+	// Add 2 for [SOS] and [EOS]
+	let total_length = padded_token_length + 2;
+
+	// Define special tokens
+	let start_token = 49406;
+	let end_token = 49407;
+
+	// Modify ids and mask extraction to include special tokens
+	// Remove manual [SOS] addition - CLIP typically only uses [EOS]
+	let ids: Vec<i64> = encodings.iter().flat_map(|e| {
+		let mut tokens = e.get_ids().iter().map(|i| *i as i64).collect::<Vec<_>>();
+		tokens.push(end_token);  // Only add [EOS]
+		tokens
+	}).collect();
+
+	let mask: Vec<i64> = encodings.iter().flat_map(|e| {
+		let mut attention_mask = vec![1]; // Start token should have attention 1
+		attention_mask.extend(e.get_attention_mask().iter().map(|i| *i as i64)); // Original attention mask
+		attention_mask.push(1); // End token should have attention 1
+		attention_mask
+	}).collect();
 
 	// Convert to 2D arrays
-	let a_ids = Array2::from_shape_vec([inputs.len(), padded_token_length], ids).unwrap();
-	let a_mask = Array2::from_shape_vec([inputs.len(), padded_token_length], mask).unwrap();
+	let a_ids = Array2::from_shape_vec([inputs.len(), padded_token_length + 2], ids).unwrap();
+	let a_mask = Array2::from_shape_vec([inputs.len(), padded_token_length + 2], mask).unwrap();
 
-	// Run the model
+	println!("ids: {:?}", a_ids);
+	println!("mask: {:?}", a_mask);
+
+	// Run the model (now outputs projected embeddings)
 	let outputs = session.run(ort::inputs![a_ids, a_mask]?)?;
 
-	// Extract and pool the embeddings
-	// Extract the `last_hidden_state` tensor (shape: [batch_size, sequence_length, hidden_size])
-	let last_hidden_state = outputs[0]
+	// Directly extract text embeddings (already projected)
+	let embeddings = outputs[0]
 		.try_extract_tensor::<f32>()?
-		.into_dimensionality::<Ix3>()
-		.map_err(|e| ort::Error::new(e.to_string()))?;	let embeddings = last_hidden_state.map_axis(Axis(1), |row| row.mean().unwrap());
+		.into_dimensionality::<ndarray::Ix2>()?;
+
+	println!("Projected embeddings: {:?}", embeddings);
+
 
 	// Normalize and compute cosine similarity
 	println!("Similarity for '{}'", inputs[0]);
