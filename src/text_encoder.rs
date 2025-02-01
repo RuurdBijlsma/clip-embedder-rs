@@ -1,21 +1,15 @@
-use anyhow::Result;
-use ndarray::{s, Array1, Array2, ArrayView1};
+use anyhow::{Context, Result};
+use ndarray::{s, Array1, Array2};
+use ort::session::SessionInputValue;
 use ort::{
-    execution_providers::CUDAExecutionProvider,
+    execution_providers::{CPUExecutionProvider, CUDAExecutionProvider},
     session::Session,
     value::Tensor,
 };
 use std::path::Path;
-use tokenizers::Tokenizer;
+use tokenizers::{PaddingDirection, PaddingParams, PaddingStrategy, Tokenizer};
 
 const MAX_LENGTH: usize = 77; // CLIP's max sequence length
-
-fn cosine_similarity(a: ArrayView1<f32>, b: ArrayView1<f32>) -> f32 {
-    let dot_product = a.dot(&b);
-    let norm_a = a.dot(&a).sqrt();
-    let norm_b = b.dot(&b).sqrt();
-    dot_product / (norm_a * norm_b)
-}
 
 fn encode_texts(tokenizer: &Tokenizer, text_session: &Session, texts: &[&str]) -> Result<Array2<f32>> {
     let encodings = texts
@@ -31,16 +25,11 @@ fn encode_texts(tokenizer: &Tokenizer, text_session: &Session, texts: &[&str]) -
 
     for (i, encoding) in encodings.into_iter().enumerate() {
         let tokens = encoding.get_ids();
-        let seq_len = tokens.len();
-
-        let tokens_array = Array1::from_iter(
-            tokens.iter()
-                .map(|&id| id as i64)
-        );
+        let seq_len = tokens.len().min(MAX_LENGTH); // Ensure we don't exceed bounds
 
         input_ids
             .slice_mut(s![i, ..seq_len])
-            .assign(&tokens_array);
+            .assign(&Array1::from_iter(tokens[..seq_len].iter().map(|&id| id as i64)));
 
         attention_mask
             .slice_mut(s![i, ..seq_len])
@@ -52,14 +41,12 @@ fn encode_texts(tokenizer: &Tokenizer, text_session: &Session, texts: &[&str]) -
 
     let outputs = text_session.run(vec![
         (
-            // Explicit type for string key
-            std::borrow::Cow::<str>::Borrowed("input_ids").into_owned(),
-            // Explicit conversion for tensor value
-            ort::session::SessionInputValue::from(input_ids_tensor)
+            "input_ids".to_string(),
+            SessionInputValue::from(input_ids_tensor)
         ),
         (
-            std::borrow::Cow::<str>::Borrowed("attention_mask").into_owned(),
-            ort::session::SessionInputValue::from(attention_mask_tensor)
+            "attention_mask".to_string(),
+            SessionInputValue::from(attention_mask_tensor)
         ),
     ])?;
 
@@ -84,6 +71,7 @@ pub fn text_main() -> Result<()> {
     let mut tokenizer = Tokenizer::from_file(data_dir.join("tokenizer.json"))
         .map_err(|e| anyhow::anyhow!("Tokenizer error: {:?}", e))?;
 
+    // Configure truncation and padding
     tokenizer
         .with_truncation(Some(tokenizers::TruncationParams {
             max_length: MAX_LENGTH,
@@ -93,9 +81,23 @@ pub fn text_main() -> Result<()> {
         }))
         .map_err(|e| anyhow::anyhow!("Tokenizer truncation error: {:?}", e))?;
 
+    tokenizer
+        .with_padding(Some(PaddingParams {
+            strategy: PaddingStrategy::Fixed(MAX_LENGTH), // Fixed here
+            direction: PaddingDirection::Right,
+            pad_to_multiple_of: None,
+            pad_id: 0,
+            pad_type_id: 0,
+            pad_token: "[PAD]".to_string(),
+        }));
+
     let text_session = Session::builder()?
-        .with_execution_providers([CUDAExecutionProvider::default().build()])?
-        .commit_from_file(data_dir.join("clip_text.onnx"))?;
+        .with_execution_providers([
+            CUDAExecutionProvider::default().build(),
+            CPUExecutionProvider::default().build(),
+        ])?
+        .commit_from_file(data_dir.join("clip_text.onnx"))
+        .with_context(|| format!("Failed to load model from {:?}", data_dir.join("clip_text.onnx")))?;
 
     let texts = [
         "The weather outside is lovely.",
@@ -111,7 +113,7 @@ pub fn text_main() -> Result<()> {
 
     for (i, text) in texts.iter().enumerate().skip(1) {
         let target_embedding = text_embeddings.row(i);
-        let similarity = cosine_similarity(query_embedding, target_embedding);
+        let similarity = query_embedding.dot(&target_embedding);
         println!("Similarity to '{}': {:.2}", text, similarity);
     }
 
