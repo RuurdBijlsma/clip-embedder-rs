@@ -10,7 +10,6 @@ ndarray = "0.16"
 tokenizers = { version = "0.21.0", default-features = false, features = [ "onig" ] }
 tracing-subscriber = { version = "0.3", default-features = false, features = [ "env-filter", "fmt" ] }
 
-tokio = { version="1.43.0", features = ["full"]}
 anyhow = "1.0.95"
 
 [features]
