@@ -41,12 +41,12 @@ fn encode_texts(tokenizer: &Tokenizer, text_session: &Session, texts: &[&str]) -
 
     let outputs = text_session.run(vec![
         (
-            "input_ids".to_string(),
-            SessionInputValue::from(input_ids_tensor)
+            "input_ids",
+            SessionInputValue::from(input_ids_tensor),
         ),
         (
-            "attention_mask".to_string(),
-            SessionInputValue::from(attention_mask_tensor)
+            "attention_mask",
+            SessionInputValue::from(attention_mask_tensor),
         ),
     ])?;
 
@@ -56,11 +56,9 @@ fn encode_texts(tokenizer: &Tokenizer, text_session: &Session, texts: &[&str]) -
         .to_owned();
 
     // Normalize embeddings to unit length
-    for mut row in embeddings.rows_mut() {
-        let norm = row.dot(&row).sqrt();
-        row /= norm;
-    }
-
+    let norms = embeddings.map_axis(ndarray::Axis(1), |row| row.dot(&row).sqrt());
+    embeddings /= &norms.insert_axis(ndarray::Axis(1));
+    
     Ok(embeddings)
 }
 
