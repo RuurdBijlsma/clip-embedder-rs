@@ -16,7 +16,7 @@ const IMAGE_SIZE: u32 = 224;
 
 /// Preprocess an image: resize, center crop, and normalize.
 /// Returns an image tensor in CHW format.
-fn preprocess_image(img: DynamicImage) -> Result<ndarray::Array3<f32>> {
+fn preprocess_image(img: &DynamicImage) -> Result<ndarray::Array3<f32>> {
     let target_size = IMAGE_SIZE;
 
     // Resizing and cropping
@@ -69,7 +69,10 @@ fn cosine_similarity(
 
 /// Encodes a batch of images using the provided ONNX session.
 /// Returns a 2D array of embeddings.
-pub fn encode_images(images: Vec<DynamicImage>, session: &Session) -> Result<ndarray::Array2<f32>> {
+pub fn encode_images(
+    images: &Vec<DynamicImage>,
+    session: &Session,
+) -> Result<ndarray::Array2<f32>> {
     let preprocessed = images
         .into_par_iter()
         .map(preprocess_image)
@@ -135,7 +138,7 @@ pub fn run_image_encoding() -> Result<()> {
         .collect::<Result<Vec<_>>>()?;
 
     let start = Instant::now();
-    let embeddings = encode_images(images, &session).context("Failed to encode images")?;
+    let embeddings = encode_images(&images, &session).context("Failed to encode images")?;
     println!("Encoding images took: {:?}", start.elapsed());
 
     // Calculate similarities.
