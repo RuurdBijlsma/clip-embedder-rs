@@ -191,6 +191,7 @@ dependencies = [
  "image",
  "ndarray",
  "ort",
+ "rayon",
  "tokenizers",
  "tracing-subscriber",
 ]
