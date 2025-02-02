@@ -9,9 +9,9 @@ use ort::{
 use std::path::Path;
 use tokenizers::{PaddingDirection, PaddingParams, PaddingStrategy, Tokenizer};
 
-const MAX_LENGTH: usize = 77; // CLIP's max sequence length
+pub const MAX_LENGTH: usize = 77; // CLIP's max sequence length
 
-fn encode_texts(tokenizer: &Tokenizer, text_session: &Session, texts: &[&str]) -> Result<Array2<f32>> {
+pub fn encode_texts(tokenizer: &Tokenizer, text_session: &Session, texts: &[&str]) -> Result<Array2<f32>> {
     let encodings = texts
         .iter()
         .map(|text| {
@@ -58,7 +58,7 @@ fn encode_texts(tokenizer: &Tokenizer, text_session: &Session, texts: &[&str]) -
     // Normalize embeddings to unit length
     let norms = embeddings.map_axis(ndarray::Axis(1), |row| row.dot(&row).sqrt());
     embeddings /= &norms.insert_axis(ndarray::Axis(1));
-    
+
     Ok(embeddings)
 }
 

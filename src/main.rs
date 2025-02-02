@@ -1,4 +1,4 @@
-mod text_encoder;
+pub mod text_encoder;
 
 use anyhow::Result;
 
