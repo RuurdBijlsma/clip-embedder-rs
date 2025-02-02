@@ -1,11 +1,9 @@
-// tests/test_text_encoder.rs
-
 use anyhow::{Context, Result};
 use clip_embedder::text_encoder::{encode_texts, MAX_LENGTH};
 use ort::execution_providers::{CPUExecutionProvider, CUDAExecutionProvider};
 use ort::session::Session;
 use std::path::Path;
-use tokenizers::Tokenizer; // Use your crate name
+use tokenizers::Tokenizer;
 
 #[test]
 fn test_encode_texts() -> Result<()> {
