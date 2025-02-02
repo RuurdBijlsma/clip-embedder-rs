@@ -11,11 +11,16 @@ use tokenizers::{PaddingDirection, PaddingParams, PaddingStrategy, Tokenizer};
 
 pub const MAX_LENGTH: usize = 77; // CLIP's max sequence length
 
-pub fn encode_texts(tokenizer: &Tokenizer, text_session: &Session, texts: &[&str]) -> Result<Array2<f32>> {
+pub fn encode_texts(
+    tokenizer: &Tokenizer,
+    text_session: &Session,
+    texts: &[&str],
+) -> Result<Array2<f32>> {
     let encodings = texts
         .iter()
         .map(|text| {
-            tokenizer.encode(*text, true)
+            tokenizer
+                .encode(*text, true)
                 .map_err(|e| anyhow::anyhow!("Tokenization error: {:?}", e))
         })
         .collect::<Result<Vec<_>>>()?;
@@ -29,21 +34,18 @@ pub fn encode_texts(tokenizer: &Tokenizer, text_session: &Session, texts: &[&str
 
         input_ids
             .slice_mut(s![i, ..seq_len])
-            .assign(&Array1::from_iter(tokens[..seq_len].iter().map(|&id| id as i64)));
+            .assign(&Array1::from_iter(
+                tokens[..seq_len].iter().map(|&id| id as i64),
+            ));
 
-        attention_mask
-            .slice_mut(s![i, ..seq_len])
-            .fill(1);
+        attention_mask.slice_mut(s![i, ..seq_len]).fill(1);
     }
 
     let input_ids_tensor = Tensor::from_array(input_ids.into_dyn())?;
     let attention_mask_tensor = Tensor::from_array(attention_mask.into_dyn())?;
 
     let outputs = text_session.run(vec![
-        (
-            "input_ids",
-            SessionInputValue::from(input_ids_tensor),
-        ),
+        ("input_ids", SessionInputValue::from(input_ids_tensor)),
         (
             "attention_mask",
             SessionInputValue::from(attention_mask_tensor),
@@ -79,15 +81,14 @@ pub fn text_main() -> Result<()> {
         }))
         .map_err(|e| anyhow::anyhow!("Tokenizer truncation error: {:?}", e))?;
 
-    tokenizer
-        .with_padding(Some(PaddingParams {
-            strategy: PaddingStrategy::Fixed(MAX_LENGTH), // Fixed here
-            direction: PaddingDirection::Right,
-            pad_to_multiple_of: None,
-            pad_id: 0,
-            pad_type_id: 0,
-            pad_token: "[PAD]".to_string(),
-        }));
+    tokenizer.with_padding(Some(PaddingParams {
+        strategy: PaddingStrategy::Fixed(MAX_LENGTH), // Fixed here
+        direction: PaddingDirection::Right,
+        pad_to_multiple_of: None,
+        pad_id: 0,
+        pad_type_id: 0,
+        pad_token: "[PAD]".to_string(),
+    }));
 
     let text_session = Session::builder()?
         .with_execution_providers([
@@ -95,12 +96,17 @@ pub fn text_main() -> Result<()> {
             CPUExecutionProvider::default().build(),
         ])?
         .commit_from_file(data_dir.join("clip_text.onnx"))
-        .with_context(|| format!("Failed to load model from {:?}", data_dir.join("clip_text.onnx")))?;
+        .with_context(|| {
+            format!(
+                "Failed to load model from {:?}",
+                data_dir.join("clip_text.onnx")
+            )
+        })?;
 
     let texts = [
         "The weather outside is lovely.",
         "It's so sunny outside!",
-        "She drove to the stadium."
+        "She drove to the stadium.",
     ];
 
     let text_embeddings = encode_texts(&tokenizer, &text_session, &texts)?;
