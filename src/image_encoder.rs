@@ -1,3 +1,4 @@
+use crate::utils::load_images;
 use anyhow::{Context, Result};
 use image::{imageops::FilterType, DynamicImage};
 use ndarray::{s, Array2, Array3, Axis};
@@ -121,16 +122,8 @@ pub fn run_image_encoding() -> Result<()> {
         "stacked_plates.jpg",
         "verdant_cliff.jpg",
     ];
-    let images = image_names
-        .par_iter()
-        .map(|name| {
-            let path = data_dir.join("imgs").join(name);
-            image::ImageReader::open(&path)
-                .with_context(|| format!("Failed to open {}", path.display()))?
-                .decode()
-                .with_context(|| format!("Failed to decode {}", path.display()))
-        })
-        .collect::<Result<Vec<_>>>()?;
+    let images =
+        load_images(&data_dir.join("images"), image_names).context("Failed to load images")?;
 
     let image_encoder = ImageEncoder::new(data_dir.join("clip_vision.onnx"), None, None, None)?;
 

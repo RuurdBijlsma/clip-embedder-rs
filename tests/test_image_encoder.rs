@@ -21,7 +21,7 @@ fn test_encode_images() -> Result<()> {
     let images = image_names
         .par_iter()
         .map(|name| {
-            let path = data_dir.join("imgs").join(name);
+            let path = data_dir.join("images").join(name);
             image::ImageReader::open(&path)
                 .with_context(|| format!("Failed to open {}", path.display()))?
                 .decode()
