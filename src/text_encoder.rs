@@ -64,9 +64,7 @@ pub fn encode_texts(
     Ok(embeddings)
 }
 
-pub fn text_main() -> Result<()> {
-    tracing_subscriber::fmt().init();
-
+pub fn run_text_encoding() -> Result<()> {
     let data_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("data");
     let mut tokenizer = Tokenizer::from_file(data_dir.join("tokenizer.json"))
         .map_err(|e| anyhow::anyhow!("Tokenizer error: {:?}", e))?;
@@ -110,7 +108,6 @@ pub fn text_main() -> Result<()> {
     ];
 
     let text_embeddings = encode_texts(&tokenizer, &text_session, &texts)?;
-    println!("Embeddings shape: {:?}", text_embeddings.shape());
 
     let query_embedding = text_embeddings.row(0);
     println!("\nQuery: {}", texts[0]);
@@ -118,7 +115,7 @@ pub fn text_main() -> Result<()> {
     for (i, text) in texts.iter().enumerate().skip(1) {
         let target_embedding = text_embeddings.row(i);
         let similarity = query_embedding.dot(&target_embedding);
-        println!("Similarity to '{}': {:.2}", text, similarity);
+        println!("\tSimilarity to '{}': {:.2}", text, similarity);
     }
 
     Ok(())
