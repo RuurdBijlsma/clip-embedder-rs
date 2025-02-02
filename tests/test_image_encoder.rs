@@ -1,30 +1,13 @@
 use anyhow::{Context, Result};
-use ort::execution_providers::{CPUExecutionProvider, CUDAExecutionProvider};
-use ort::session::Session;
+use clip_embedder::image_encoder::ImageEncoder;
 use rayon::iter::IntoParallelRefIterator;
 use rayon::prelude::*;
 use std::path::Path;
 
 #[test]
 fn test_encode_images() -> Result<()> {
-    // Setup paths and initialize components
     let data_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("data");
 
-    // Initialize ONNX session
-    let session = Session::builder()?
-        .with_execution_providers([
-            CUDAExecutionProvider::default().build(),
-            CPUExecutionProvider::default().build(),
-        ])?
-        .commit_from_file(data_dir.join("clip_vision.onnx"))
-        .with_context(|| {
-            format!(
-                "Failed to load model from {:?}",
-                data_dir.join("clip_vision.onnx")
-            )
-        })?;
-
-    // Test cases
     let image_names = [
         "beach_rocks.jpg",
         "beetle_car.jpg",
@@ -46,8 +29,9 @@ fn test_encode_images() -> Result<()> {
         })
         .collect::<Result<Vec<_>>>()?;
 
-    let embeddings = clip_embedder::image_encoder::encode_images(&images, &session)
-        .context("Failed to encode images")?;
+    let image_encoder = ImageEncoder::new(data_dir.join("clip_vision.onnx"), None, None, None)?;
+
+    let embeddings = image_encoder.encode(&images)?;
 
     // Test 1: Verify output shape
     assert_eq!(
