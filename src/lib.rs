@@ -7,6 +7,13 @@ use rayon::prelude::*;
 use std::path::Path;
 use tokenizers::{PaddingParams, Tokenizer, TruncationParams};
 
+// todo:
+// think about separating text & vision model
+// * in ruurd photos they will be in separate places (ingest & api[search])
+// find last discrepency between image preprocessing :( (check pixel difference with python)
+// Make "search-engine" usecase and make benchmark, also make it in python, compare performance.
+// * Maybe use imagenet dataset or something
+
 #[derive(thiserror::Error, Debug)]
 pub enum SigLipError {
     #[error("Inference engine error: {0}")]
