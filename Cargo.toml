@@ -4,3 +4,10 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3.22", features = ["env-filter"] }
+color-eyre = "0.6.5"
+ort = { version = "2.0.0-rc.11", features = ["ndarray", "load-dynamic"] }
+ndarray = "0.17.2"
+image = "0.25.9"
+tokenizers = { version = "0.22.2" }
