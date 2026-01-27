@@ -34,29 +34,37 @@ fn main() -> Result<()> {
     let mut visual_model = Session::builder()?.commit_from_file("assets/model/visual.onnx")?;
     let mut text_model = Session::builder()?.commit_from_file("assets/model/text.onnx")?;
 
-    // 1. Preprocess Image (OpenCLIP Parity)
+    // 1. Preprocess Image
     info!("Preprocessing Image...");
     let img = image::open("assets/img/beach_rocks.jpg")?.to_rgb8();
     let (width, height) = img.dimensions();
 
-    // Resize shortest edge to 384
-    let (nw, nh) = if width < height {
-        (IMAGE_SIZE, (height as f32 * (IMAGE_SIZE as f32 / width as f32)) as u32)
-    } else {
-        ((width as f32 * (IMAGE_SIZE as f32 / height as f32)) as u32, IMAGE_SIZE)
-    };
+    // MATCH PILLOW: Calculate dimensions with f64 and round
+    let scale = IMAGE_SIZE as f64 / (std::cmp::min(width, height) as f64);
+    let nw = (width as f64 * scale).round() as u32;
+    let nh = (height as f64 * scale).round() as u32;
 
-    // Note: CatmullRom is the closest Rust equivalent to Pillow's Bicubic.
+    // Note: CatmullRom is closest to Bicubic.
+    // If parity is still off, try FilterType::Lanczos3 (which matches PIL's high-quality downsampling)
     let img_scaled = image::imageops::resize(&img, nw, nh, FilterType::CatmullRom);
 
-    // Center Crop
-    let x_offset = (nw - IMAGE_SIZE) / 2;
-    let y_offset = (nh - IMAGE_SIZE) / 2;
-    let img_cropped = image::imageops::crop_imm(&img_scaled, x_offset, y_offset, IMAGE_SIZE, IMAGE_SIZE).to_image();
+    // MATCH TORCHVISION: Center Crop offsets
+    // Python: int(round((image_height - crop_height) / 2.0))
+    let x_offset = ((nw as f32 - IMAGE_SIZE as f32) / 2.0).round() as u32;
+    let y_offset = ((nh as f32 - IMAGE_SIZE as f32) / 2.0).round() as u32;
+
+    let img_cropped = image::imageops::crop_imm(
+        &img_scaled,
+        x_offset,
+        y_offset,
+        IMAGE_SIZE,
+        IMAGE_SIZE
+    ).to_image();
 
     let mut image_array = Array4::<f32>::zeros((1, 3, IMAGE_SIZE as usize, IMAGE_SIZE as usize));
     for (x, y, pixel) in img_cropped.enumerate_pixels() {
-        // SigLIP: (pixel / 255.0 - 0.5) / 0.5
+        // SigLIP normalization: (pixel / 255.0 - 0.5) / 0.5 => (pixel / 127.5) - 1.0
+        // We use f32 conversion early to maintain precision
         image_array[[0, 0, y as usize, x as usize]] = (pixel[0] as f32 / 127.5) - 1.0;
         image_array[[0, 1, y as usize, x as usize]] = (pixel[1] as f32 / 127.5) - 1.0;
         image_array[[0, 2, y as usize, x as usize]] = (pixel[2] as f32 / 127.5) - 1.0;
@@ -69,7 +77,7 @@ fn main() -> Result<()> {
     let encoding = tokenizer.encode(text_input, false).map_err(|e| eyre!(e))?;
     let mut ids: Vec<i64> = encoding.get_ids().iter().map(|&x| x as i64).collect();
 
-    // Pad with 1 to match Python [7832, 1, 1, 1...]
+    // Pad with 1 to match Python
     ids.push(1); // EOS
     while ids.len() < CONTEXT_LENGTH {
         ids.push(1); // PAD
