@@ -14,10 +14,8 @@ const BENCHMARK_ITERS: u32 = 10;
 fn run_image_pipeline(visual_model: &mut Session) -> Result<Duration> {
     let start = Instant::now();
 
-    // 1. Preprocess
+    // - Preprocess
     let img = image::open("assets/img/beach_rocks.jpg")?.to_rgb8();
-
-    // "squash" mode: Ignore aspect ratio and resize directly to IMAGE_SIZE x IMAGE_SIZE
     let img_resized = image::imageops::resize(
         &img,
         IMAGE_SIZE,
@@ -26,7 +24,6 @@ fn run_image_pipeline(visual_model: &mut Session) -> Result<Duration> {
     );
 
     let mut image_array = Array4::<f32>::zeros((1, 3, IMAGE_SIZE as usize, IMAGE_SIZE as usize));
-
     // SigLIP normalization: (pixel / 255.0 - 0.5) / 0.5
     // which simplifies to (pixel / 127.5) - 1.0
     for (x, y, pixel) in img_resized.enumerate_pixels() {
@@ -35,19 +32,18 @@ fn run_image_pipeline(visual_model: &mut Session) -> Result<Duration> {
         image_array[[0, 2, y as usize, x as usize]] = (pixel[2] as f32 / 127.5) - 1.0;
     }
 
-    // 2. Inference
+    // - Inference
     let outputs = visual_model.run(inputs!["pixel_values" => Tensor::from_array(image_array)?])?;
     let emb_array = outputs["image_embeddings"].try_extract_array::<f32>()?;
     println!("Image Embedding [0:20]:");
     println!("{:?}", emb_array.slice(ndarray::s![0, 0..20]).to_vec());
-
     Ok(start.elapsed())
 }
 
 fn run_text_pipeline(text_model: &mut Session, tokenizer: &Tokenizer) -> Result<Duration> {
     let start = Instant::now();
 
-    // 1. Preprocess
+    // - Preprocess
     let text_input = "rocks in the rock business";
     let encoding = tokenizer.encode(text_input, false).map_err(|e| eyre!(e))?;
     let mut ids: Vec<i64> = encoding.get_ids().iter().map(|&x| x as i64).collect();
@@ -56,7 +52,7 @@ fn run_text_pipeline(text_model: &mut Session, tokenizer: &Tokenizer) -> Result<
     ids.truncate(CONTEXT_LENGTH);
     let text_array = Array2::from_shape_vec((1, CONTEXT_LENGTH), ids)?;
 
-    // 2. Inference
+    // - Inference
     let outputs = text_model.run(inputs!["input_ids" => Tensor::from_array(text_array)?])?;
     let emb_array = outputs["text_embeddings"].try_extract_array::<f32>()?;
     println!("Text Embedding [0:20]:");
