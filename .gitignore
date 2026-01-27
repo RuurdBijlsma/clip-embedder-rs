@@ -1,4 +1,7 @@
 /target
 .idea
-assets/model
+assets/model/*
+!assets/model/export_onnx.py
 .fastembed_cache
+!assets/model/README.md
+assets/model_info
