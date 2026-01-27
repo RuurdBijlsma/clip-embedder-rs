@@ -1,6 +1,7 @@
 use color_eyre::eyre::{Result, eyre};
 use image::imageops::FilterType;
-use ndarray::{Array, Array4, Array2};
+use ndarray::{Array, Array2, Array4};
+use ort::ep::CPUExecutionProvider;
 use ort::inputs;
 use ort::session::Session;
 use ort::value::Tensor;
@@ -20,7 +21,7 @@ fn run_image_pipeline(visual_model: &mut Session) -> Result<Duration> {
         &img,
         IMAGE_SIZE,
         IMAGE_SIZE,
-        FilterType::CatmullRom // Bicubic equivalent in the image crate
+        FilterType::CatmullRom, // Bicubic equivalent in the image crate
     );
 
     let mut image_array = Array4::<f32>::zeros((1, 3, IMAGE_SIZE as usize, IMAGE_SIZE as usize));
@@ -48,7 +49,9 @@ fn run_text_pipeline(text_model: &mut Session, tokenizer: &Tokenizer) -> Result<
     let encoding = tokenizer.encode(text_input, false).map_err(|e| eyre!(e))?;
     let mut ids: Vec<i64> = encoding.get_ids().iter().map(|&x| x as i64).collect();
     ids.push(1);
-    while ids.len() < CONTEXT_LENGTH { ids.push(1); }
+    while ids.len() < CONTEXT_LENGTH {
+        ids.push(1);
+    }
     ids.truncate(CONTEXT_LENGTH);
     let text_array = Array2::from_shape_vec((1, CONTEXT_LENGTH), ids)?;
 
@@ -64,9 +67,13 @@ fn run_text_pipeline(text_model: &mut Session, tokenizer: &Tokenizer) -> Result<
 fn main() -> Result<()> {
     color_eyre::install()?;
 
-    let dll_path = if cfg!(target_os = "windows") { "C:/Apps/onnxruntime/lib/onnxruntime.dll" } else { "libonnxruntime.so" };
+    let dll_path = if cfg!(target_os = "windows") {
+        "C:/Apps/onnxruntime/lib/onnxruntime.dll"
+    } else {
+        "libonnxruntime.so"
+    };
     ort::init_from(dll_path)?
-        .with_execution_providers([ort::execution_providers::CPUExecutionProvider::default().build()])
+        .with_execution_providers([CPUExecutionProvider::default().build()])
         .commit();
 
     let mut visual_model = Session::builder()?.commit_from_file("assets/model/visual.onnx")?;
@@ -90,8 +97,14 @@ fn main() -> Result<()> {
     }
 
     println!("\n--- RUST RESULTS (AVG PER RUN) ---");
-    println!("Image Pipeline: {:?}ms", (img_total / BENCHMARK_ITERS).as_millis());
-    println!("Text Pipeline:  {:?}ms", (text_total / BENCHMARK_ITERS).as_millis());
+    println!(
+        "Image Pipeline: {:?}ms",
+        (img_total / BENCHMARK_ITERS).as_millis()
+    );
+    println!(
+        "Text Pipeline:  {:?}ms",
+        (text_total / BENCHMARK_ITERS).as_millis()
+    );
 
     Ok(())
 }
