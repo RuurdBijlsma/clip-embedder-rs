@@ -1,3 +1,4 @@
 /target
 .idea
 assets/model
+.fastembed_cache

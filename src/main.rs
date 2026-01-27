@@ -16,24 +16,30 @@ fn run_image_pipeline(visual_model: &mut Session) -> Result<Duration> {
 
     // 1. Preprocess
     let img = image::open("assets/img/beach_rocks.jpg")?.to_rgb8();
-    let (width, height) = img.dimensions();
-    let scale = IMAGE_SIZE as f64 / (std::cmp::min(width, height) as f64);
-    let nw = (width as f64 * scale).round() as u32;
-    let nh = (height as f64 * scale).round() as u32;
-    let img_scaled = image::imageops::resize(&img, nw, nh, FilterType::CatmullRom);
-    let x_offset = ((nw as f32 - IMAGE_SIZE as f32) / 2.0).round() as u32;
-    let y_offset = ((nh as f32 - IMAGE_SIZE as f32) / 2.0).round() as u32;
-    let img_cropped = image::imageops::crop_imm(&img_scaled, x_offset, y_offset, IMAGE_SIZE, IMAGE_SIZE).to_image();
+
+    // "squash" mode: Ignore aspect ratio and resize directly to IMAGE_SIZE x IMAGE_SIZE
+    let img_resized = image::imageops::resize(
+        &img,
+        IMAGE_SIZE,
+        IMAGE_SIZE,
+        FilterType::CatmullRom // Bicubic equivalent in the image crate
+    );
 
     let mut image_array = Array4::<f32>::zeros((1, 3, IMAGE_SIZE as usize, IMAGE_SIZE as usize));
-    for (x, y, pixel) in img_cropped.enumerate_pixels() {
+
+    // SigLIP normalization: (pixel / 255.0 - 0.5) / 0.5
+    // which simplifies to (pixel / 127.5) - 1.0
+    for (x, y, pixel) in img_resized.enumerate_pixels() {
         image_array[[0, 0, y as usize, x as usize]] = (pixel[0] as f32 / 127.5) - 1.0;
         image_array[[0, 1, y as usize, x as usize]] = (pixel[1] as f32 / 127.5) - 1.0;
         image_array[[0, 2, y as usize, x as usize]] = (pixel[2] as f32 / 127.5) - 1.0;
     }
 
     // 2. Inference
-    let _ = visual_model.run(inputs!["pixel_values" => Tensor::from_array(image_array)?])?;
+    let outputs = visual_model.run(inputs!["pixel_values" => Tensor::from_array(image_array)?])?;
+    let emb_array = outputs["image_embeddings"].try_extract_array::<f32>()?;
+    println!("Image Embedding [0:20]:");
+    println!("{:?}", emb_array.slice(ndarray::s![0, 0..20]).to_vec());
 
     Ok(start.elapsed())
 }
@@ -51,7 +57,10 @@ fn run_text_pipeline(text_model: &mut Session, tokenizer: &Tokenizer) -> Result<
     let text_array = Array2::from_shape_vec((1, CONTEXT_LENGTH), ids)?;
 
     // 2. Inference
-    let _ = text_model.run(inputs!["input_ids" => Tensor::from_array(text_array)?])?;
+    let outputs = text_model.run(inputs!["input_ids" => Tensor::from_array(text_array)?])?;
+    let emb_array = outputs["text_embeddings"].try_extract_array::<f32>()?;
+    println!("Text Embedding [0:20]:");
+    println!("{:?}", emb_array.slice(ndarray::s![0, 0..20]).to_vec());
 
     Ok(start.elapsed())
 }
