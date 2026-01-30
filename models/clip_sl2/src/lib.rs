@@ -1,6 +1,6 @@
 use image::{DynamicImage, GenericImageView};
 use ndarray::{Array2, Array4, ArrayView, IxDyn};
-use ort::session::{builder::GraphOptimizationLevel, Session};
+use ort::session::{Session, builder::GraphOptimizationLevel};
 use ort::value::Value;
 use rayon::prelude::*;
 use std::path::Path;
@@ -39,7 +39,11 @@ impl SigLipVisionModel {
 
     pub fn preprocess(&self, img: &DynamicImage) -> Array4<f32> {
         // SigLIP 2 uses "squash" resize (non-aspect-ratio preserving)
-        let resized = img.resize_exact(self.image_size, self.image_size, image::imageops::FilterType::Triangle);
+        let resized = img.resize_exact(
+            self.image_size,
+            self.image_size,
+            image::imageops::FilterType::CatmullRom,
+        );
         let rgb = resized.to_rgb8();
 
         // SigLIP 2 normalization: (val - 0.5) / 0.5
@@ -64,7 +68,7 @@ impl SigLipVisionModel {
             (1, 3, self.image_size as usize, self.image_size as usize),
             pixels,
         )
-            .unwrap()
+        .unwrap()
     }
 
     pub fn embed_batch(&mut self, images: &[DynamicImage]) -> Result<Array2<f32>, ClipError> {
@@ -83,7 +87,9 @@ impl SigLipVisionModel {
         }
 
         let input_tensor = Value::from_array(batch_array)?;
-        let outputs = self.session.run(ort::inputs!["pixel_values" => input_tensor])?;
+        let outputs = self
+            .session
+            .run(ort::inputs!["pixel_values" => input_tensor])?;
 
         let (shape_ort, data) = outputs[0].try_extract_tensor::<f32>()?;
         let shape_usize: Vec<usize> = shape_ort.iter().map(|&x| x as usize).collect();

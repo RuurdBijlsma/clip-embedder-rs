@@ -18,11 +18,11 @@ struct ModelConfig {
     context_length: usize,
 }
 
+/// Helper to calculate mean and standard deviation to match Python's np.mean/np.std
 fn get_stats(data: ArrayView1<f32>) -> (f32, f32) {
     let mean = data.mean().unwrap_or(0.0);
-    let std = data.fold(0.0, |acc, &x| acc + (x - mean).powi(2));
-    let std = (std / data.len() as f32).sqrt();
-    (mean, std)
+    let var = data.fold(0.0, |acc, &x| acc + (x - mean).powi(2)) / data.len() as f32;
+    (mean, var.sqrt())
 }
 
 fn main() -> Result<()> {
@@ -68,29 +68,42 @@ fn main() -> Result<()> {
 
     // 4. Process Text
     println!("Encoding query: '{}'...", query_text);
-    let lower_text = query_text.to_lowercase();
-    let text_emb = text_model.embed(&lower_text)?;
+    let text_emb = text_model.embed(query_text)?;
 
     // --- DEBUG: MATCHING PYTHON OUTPUT ---
-    println!("\n--- DEBUG: ONNX VALUES (SigLIP 2 Rust) ---");
-    let ids = text_model.get_ids(&lower_text)?;
-    println!("Text Input IDs (first 10): {:?}", &ids[..std::cmp::min(10, ids.len())]);
+    println!("\n--- DEBUG: ONNX VALUES (SigLIP 2) ---");
 
+    // 1. Text Input IDs
+    let ids = text_model.get_ids(query_text)?;
+    // Take first 10, or fewer if string is very short
+    let display_ids = &ids[..std::cmp::min(10, ids.len())];
+    println!("Text Input IDs (first 10): {:?}", display_ids);
+
+    // 2. Image Pixel Values (First Image)
     let pix = vision_model.preprocess(&images[0]);
-    let pix_view = pix.view().into_shape_with_order(pix.len())?;
-    let (pix_mean, pix_std) = get_stats(pix_view);
+    // Flatten for stats
+    let pix_flat = pix.view().into_shape_with_order(pix.len())?;
+    let (pix_mean, pix_std) = get_stats(pix_flat);
     println!("Image Pixel Values - Mean: {:.6}, Std: {:.6}", pix_mean, pix_std);
 
-    let t_emb_view = text_emb.row(0);
-    let (t_mean, t_std) = get_stats(t_emb_view);
-    println!("Text Embeds - Mean: {:.6}, Std: {:.6}", t_mean, t_std);
+    // Slice: Batch 0, Channel 0, Row 0, first 5 Columns
+    let pix_slice = pix.slice(ndarray::s![0, 0, 0, ..30]).to_vec();
+    println!("Image Pixel Values (slice): {:?}", pix_slice);
 
-    let i_emb_view = img_embs.row(0);
-    let (i_mean, i_std) = get_stats(i_emb_view);
+    // 3. Text Embeddings
+    let t_emb_row = text_emb.row(0);
+    let (t_mean, t_std) = get_stats(t_emb_row);
+    println!("Text Embeds[0] - Mean: {:.6}, Std: {:.6}", t_mean, t_std);
+    println!("Text Embeds[0] (first 5): {:?}", t_emb_row.slice(ndarray::s![..5]).to_vec());
+
+    // 4. Image Embeddings
+    let i_emb_row = img_embs.row(0);
+    let (i_mean, i_std) = get_stats(i_emb_row);
     println!("Image Embeds[0] - Mean: {:.6}, Std: {:.6}", i_mean, i_std);
+    println!("Image Embeds[0] (first 5): {:?}", i_emb_row.slice(ndarray::s![..5]).to_vec());
+    // -------------------------------------
 
     // 5. Calculate SigLIP Similarities
-    // Logic: sigmoid( (img_emb @ text_emb.T) * scale + bias )
     let text_emb_vec = text_emb.index_axis(Axis(0), 0);
     let similarities = img_embs.dot(&text_emb_vec);
 
