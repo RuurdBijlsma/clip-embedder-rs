@@ -1,7 +1,6 @@
 use image::DynamicImage;
 use ndarray::{Array2, Array4};
-use ort::session::Session;
-use ort::session::builder::GraphOptimizationLevel;
+use ort::session::{builder::GraphOptimizationLevel, Session};
 use ort::value::Value;
 use rayon::prelude::*;
 use std::path::Path;
@@ -26,52 +25,26 @@ pub enum SigLipError {
     Shape(#[from] ndarray::ShapeError),
 }
 
-pub struct SigLipModel {
-    visual_session: Session,
-    text_session: Session,
-    tokenizer: Tokenizer,
+pub struct SigLipVisionModel {
+    session: Session,
     image_size: u32,
 }
 
-impl SigLipModel {
-    pub fn new(
-        visual_path: impl AsRef<Path>,
-        text_path: impl AsRef<Path>,
-        tokenizer_path: impl AsRef<Path>,
-        image_size: u32,
-        context_length: usize,
-    ) -> Result<Self, SigLipError> {
+impl SigLipVisionModel {
+    pub fn new(visual_path: impl AsRef<Path>, image_size: u32) -> Result<Self, SigLipError> {
         let threads = num_cpus::get();
-        let visual_session = Session::builder()?
+        let session = Session::builder()?
             .with_optimization_level(GraphOptimizationLevel::Level3)?
             .with_intra_threads(threads)?
             .commit_from_file(visual_path)?;
-        let text_session = Session::builder()?
-            .with_optimization_level(GraphOptimizationLevel::Level3)?
-            .with_intra_threads(threads)?
-            .commit_from_file(text_path)?;
-        let mut tokenizer = Tokenizer::from_file(tokenizer_path)
-            .map_err(|e| SigLipError::Tokenizer(e.to_string()))?;
-        tokenizer.with_padding(Some(PaddingParams {
-            strategy: tokenizers::PaddingStrategy::Fixed(context_length),
-            pad_id: 1, // Standard SigLIP/ViT pad ID
-            ..Default::default()
-        }));
-        tokenizer
-            .with_truncation(Some(TruncationParams {
-                max_length: context_length,
-                ..Default::default()
-            }))
-            .map_err(|e| SigLipError::Tokenizer(e.to_string()))?;
+
         Ok(Self {
-            visual_session,
-            text_session,
-            tokenizer,
+            session,
             image_size,
         })
     }
 
-    pub fn embed_image(&mut self, img: &DynamicImage) -> Result<Vec<f32>, SigLipError> {
+    pub fn embed(&mut self, img: &DynamicImage) -> Result<Vec<f32>, SigLipError> {
         let resized = img.resize_exact(
             self.image_size,
             self.image_size,
@@ -82,6 +55,7 @@ impl SigLipModel {
             vec![0.0; 3 * self.image_size as usize * self.image_size as usize];
         let raw_samples = rgb.as_flat_samples().samples;
         let channel_step = (self.image_size * self.image_size) as usize;
+
         pixels
             .par_chunks_exact_mut(channel_step)
             .enumerate()
@@ -90,21 +64,58 @@ impl SigLipModel {
                     channel_slice[i] = (raw_samples[i * 3 + c] as f32 / 127.5) - 1.0;
                 }
             });
+
         let array = Array4::from_shape_vec(
             (1, 3, self.image_size as usize, self.image_size as usize),
             pixels,
         )?;
         let input_tensor = Value::from_array(array)?;
         let outputs = self
-            .visual_session
+            .session
             .run(ort::inputs!["pixel_values" => input_tensor])?;
-        let extract = outputs["image_embeddings"].try_extract_tensor::<f32>()?;
-        let embeddings = extract.1;
 
-        Ok(embeddings.to_vec())
+        let extract = outputs["image_embeddings"].try_extract_tensor::<f32>()?;
+        Ok(extract.1.to_vec())
+    }
+}
+
+pub struct SigLipTextModel {
+    session: Session,
+    tokenizer: Tokenizer,
+}
+
+impl SigLipTextModel {
+    pub fn new(
+        text_path: impl AsRef<Path>,
+        tokenizer_path: impl AsRef<Path>,
+        context_length: usize,
+    ) -> Result<Self, SigLipError> {
+        let threads = num_cpus::get();
+        let session = Session::builder()?
+            .with_optimization_level(GraphOptimizationLevel::Level3)?
+            .with_intra_threads(threads)?
+            .commit_from_file(text_path)?;
+
+        let mut tokenizer = Tokenizer::from_file(tokenizer_path)
+            .map_err(|e| SigLipError::Tokenizer(e.to_string()))?;
+
+        tokenizer.with_padding(Some(PaddingParams {
+            strategy: tokenizers::PaddingStrategy::Fixed(context_length),
+            pad_id: 1,
+            ..Default::default()
+        }));
+
+        tokenizer
+            .with_truncation(Some(TruncationParams {
+                max_length: context_length,
+                ..Default::default()
+            }))
+            .map_err(|e| SigLipError::Tokenizer(e.to_string()))?;
+
+        Ok(Self { session, tokenizer })
     }
 
-    pub fn embed_text(&mut self, text: &str) -> Result<Vec<f32>, SigLipError> {
+    pub fn embed(&mut self, text: &str) -> Result<Vec<f32>, SigLipError> {
         let encoding = self
             .tokenizer
             .encode(text, true)
@@ -116,12 +127,10 @@ impl SigLipModel {
 
         let input_tensor = Value::from_array(array)?;
         let outputs = self
-            .text_session
+            .session
             .run(ort::inputs!["input_ids" => input_tensor])?;
 
         let extract = outputs["text_embeddings"].try_extract_tensor::<f32>()?;
-        let embeddings = extract.1;
-
-        Ok(embeddings.to_vec())
+        Ok(extract.1.to_vec())
     }
 }
