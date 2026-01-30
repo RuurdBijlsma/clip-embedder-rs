@@ -1,6 +1,7 @@
-# open-clip-rs
+# CLIP Embedder in Rust
 
-Run https://huggingface.co/timm/ViT-SO400M-14-SigLIP-384 CLIP (vision & text embedding) via onnx in rust.
+Run siglip2 CLIP model via ONNX in Rust.
+https://huggingface.co/timm/ViT-SO400M-16-SigLIP2-384
 
 ## Prereqs:
 
@@ -13,7 +14,7 @@ Run https://huggingface.co/timm/ViT-SO400M-14-SigLIP-384 CLIP (vision & text emb
 ### Get onnx files:
 
 ```shell
-cd assets/model
+cd models/clip_sl2
 uv run export_onnx.py
 # Wait for it to finish generating the 5 files
 ```
@@ -21,7 +22,15 @@ uv run export_onnx.py
 ### Run the program
 
 ```shell
-cargo run --example run --release
+cargo run --package clip_sl2 --example search
+```
+
+```shell
+cargo run --package clip_sl2 --example debug
+```
+
+```shell
+cargo run --package clip_sl2 --example perf
 ```
 
 ## Troubleshooting
