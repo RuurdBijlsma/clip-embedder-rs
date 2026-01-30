@@ -1,8 +1,11 @@
+use clip_sl2::perf::perf_main;
 use clip_sl2::{SigLipTextModel, SigLipVisionModel, sigmoid};
 use color_eyre::eyre::Result;
-use ndarray::{Axis, ArrayView1};
+use image::{DynamicImage, ImageBuffer, Rgb};
+use ndarray::{Array2, ArrayView1, Axis};
 use serde::Deserialize;
 use std::fs;
+use std::time::Instant;
 
 const ASSETS_FOLDER: &str = "models/clip_sl2/assets";
 
@@ -18,36 +21,25 @@ struct ModelConfig {
     context_length: usize,
 }
 
-/// Helper to calculate mean and standard deviation to match Python's np.mean/np.std
 fn get_stats(data: ArrayView1<f32>) -> (f32, f32) {
     let mean = data.mean().unwrap_or(0.0);
     let var = data.fold(0.0, |acc, &x| acc + (x - mean).powi(2)) / data.len() as f32;
     (mean, var.sqrt())
 }
 
-use image::{ImageBuffer, Rgb};
-
-/// Saves the preprocessed tensor to a file for visual inspection
 fn save_debug_image(pix: &ndarray::Array4<f32>, path: &str) -> Result<()> {
-    // pix is [1, 3, H, W]
     let height = pix.shape()[2];
     let width = pix.shape()[3];
-
-    // Create an ImageBuffer to hold the RGB data
     let mut img_buf = ImageBuffer::new(width as u32, height as u32);
 
     for y in 0..height {
         for x in 0..width {
-            // SigLIP 2 De-normalization: (val * 0.5) + 0.5
-            // Then scale to 255
             let r = ((pix[[0, 0, y, x]] * 0.5 + 0.5) * 255.0).clamp(0.0, 255.0) as u8;
             let g = ((pix[[0, 1, y, x]] * 0.5 + 0.5) * 255.0).clamp(0.0, 255.0) as u8;
             let b = ((pix[[0, 2, y, x]] * 0.5 + 0.5) * 255.0).clamp(0.0, 255.0) as u8;
-
             img_buf.put_pixel(x as u32, y as u32, Rgb([r, g, b]));
         }
     }
-
     img_buf.save(path)?;
     println!("Debug image saved to: {}", path);
     Ok(())
@@ -60,79 +52,128 @@ fn main() -> Result<()> {
     let model_dir = get_asset("model");
     let query_text = "A photo of Rocks";
     let image_files = vec![
-        "beach_rocks.jpg", "beetle_car.jpg", "cat_face.jpg", "dark_sunset.jpg",
-        "palace.jpg", "rocky_coast.jpg", "stacked_plates.jpg", "verdant_cliff.jpg"
+        "beach_rocks.jpg",
+        "beetle_car.jpg",
+        "cat_face.jpg",
+        "dark_sunset.jpg",
+        "palace.jpg",
+        "rocky_coast.jpg",
+        "stacked_plates.jpg",
+        "verdant_cliff.jpg",
     ];
 
-    // 1. Load Config
     let config_str = fs::read_to_string(format!("{}/model_config.json", model_dir))?;
     let config: ModelConfig = serde_json::from_str(&config_str)?;
 
-    // 2. Load Models
     println!("Loading models...");
-    let mut vision_model = SigLipVisionModel::new(
-        format!("{}/visual.onnx", model_dir),
-        config.image_size
-    )?;
+    let mut vision_model =
+        SigLipVisionModel::new(format!("{}/visual.onnx", model_dir), config.image_size)?;
     let mut text_model = SigLipTextModel::new(
         format!("{}/text.onnx", model_dir),
         format!("{}/tokenizer.json", model_dir),
-        config.context_length
+        config.context_length,
     )?;
 
-    // 3. Process Images
-    let mut images = Vec::new();
+    // Load a sample image for warmup and timing
+    let sample_img_path = std::path::Path::new(&image_dir).join(&image_files[0]);
+    let sample_img = image::open(sample_img_path)?;
+
+    // --- 1. WARMUP ---
+    println!("Warming up models...");
+    {
+        let v_pre = vision_model.preprocess(&sample_img);
+        let _ = vision_model.inference(v_pre)?;
+        let t_pre = text_model.tokenize(query_text)?;
+        let _ = text_model.inference(t_pre)?;
+    }
+
+    // --- 2. TIMED PERFORMANCE RUN (Single item) ---
+    println!("\n--- PERFORMANCE TIMING (Single Item) ---");
+
+    let start_v_pre = Instant::now();
+    let img_tensor = vision_model.preprocess(&sample_img);
+    let dur_v_pre = start_v_pre.elapsed();
+
+    let start_v_inf = Instant::now();
+    let single_img_emb = vision_model.inference(img_tensor.clone())?;
+    let dur_v_inf = start_v_inf.elapsed();
+
+    let start_t_pre = Instant::now();
+    let text_ids = text_model.tokenize(query_text)?;
+    let dur_t_pre = start_t_pre.elapsed();
+
+    let start_t_inf = Instant::now();
+    let text_emb = text_model.inference(text_ids)?;
+    let dur_t_inf = start_t_inf.elapsed();
+
+    println!(
+        "Vision Preproc: {:>8.2}ms",
+        dur_v_pre.as_secs_f64() * 1000.0
+    );
+    println!(
+        "Vision Infer:   {:>8.2}ms",
+        dur_v_inf.as_secs_f64() * 1000.0
+    );
+    println!(
+        "Text Preproc:   {:>8.2}ms",
+        dur_t_pre.as_secs_f64() * 1000.0
+    );
+    println!(
+        "Text Infer:     {:>8.2}ms",
+        dur_t_inf.as_secs_f64() * 1000.0
+    );
+
+    // --- 3. PROCESS FULL BATCH ---
+    println!("\nProcessing full batch of {} images...", image_files.len());
     let mut valid_names = Vec::new();
+    let mut all_img_embs = Vec::new();
+
     for name in &image_files {
         let path = std::path::Path::new(&image_dir).join(name);
         if path.exists() {
-            images.push(image::open(path)?);
+            let img = image::open(path)?;
+            let tensor = vision_model.preprocess(&img);
+            let emb = vision_model.inference(tensor)?;
+            all_img_embs.push(emb);
             valid_names.push(name.to_string());
         }
     }
 
-    println!("Running Vision ONNX model...");
-    let img_embs = vision_model.embed_batch(&images)?;
+    // Stack single embeddings into one Array2 (Batch, Dim)
+    let dim = all_img_embs[0].shape()[1];
+    let mut img_embs = Array2::<f32>::zeros((all_img_embs.len(), dim));
+    for (i, emb) in all_img_embs.iter().enumerate() {
+        img_embs.row_mut(i).assign(&emb.row(0));
+    }
 
-    // 4. Process Text
-    println!("Encoding query: '{}'...", query_text);
-    let text_emb = text_model.embed(query_text)?;
-
-    // --- DEBUG: MATCHING PYTHON OUTPUT ---
-    println!("\n--- DEBUG: ONNX VALUES (SigLIP 2) ---");
-
-    // 1. Text Input IDs
+    // --- 4. DEBUG OUTPUT (SigLIP 2 parity) ---
+    println!("\n--- DEBUG: ONNX VALUES ---");
     let ids = text_model.get_ids(query_text)?;
-    // Take first 10, or fewer if string is very short
-    let display_ids = &ids[..std::cmp::min(10, ids.len())];
-    println!("Text Input IDs (first 10): {:?}", display_ids);
+    println!(
+        "Text Input IDs (first 10): {:?}",
+        &ids[..std::cmp::min(10, ids.len())]
+    );
 
-    // 2. Image Pixel Values (First Image)
-    let pix = vision_model.preprocess(&images[0]);
-    save_debug_image(&pix, "debug_input_tensor.png")?;
-    // Flatten for stats
-    let pix_flat = pix.view().into_shape_with_order(pix.len())?;
-    let (pix_mean, pix_std) = get_stats(pix_flat);
-    println!("Image Pixel Values - Mean: {:.6}, Std: {:.6}", pix_mean, pix_std);
+    save_debug_image(&img_tensor, "debug_input_tensor.png")?;
+    let (pix_mean, pix_std) = get_stats(img_tensor.view().into_shape_with_order(img_tensor.len())?);
+    println!(
+        "Image Pixel Values - Mean: {:.6}, Std: {:.6}",
+        pix_mean, pix_std
+    );
+    println!(
+        "Image Pixel Values (slice): {:?}",
+        img_tensor.slice(ndarray::s![0, 0, 0, ..30]).to_vec()
+    );
 
-    // Slice: Batch 0, Channel 0, Row 0, first 5 Columns
-    let pix_slice = pix.slice(ndarray::s![0, 0, 0, ..30]).to_vec();
-    println!("Image Pixel Values (slice): {:?}", pix_slice);
-
-    // 3. Text Embeddings
-    let t_emb_row = text_emb.row(0);
-    let (t_mean, t_std) = get_stats(t_emb_row);
+    let t_row = text_emb.row(0);
+    let (t_mean, t_std) = get_stats(t_row);
     println!("Text Embeds[0] - Mean: {:.6}, Std: {:.6}", t_mean, t_std);
-    println!("Text Embeds[0] (first 5): {:?}", t_emb_row.slice(ndarray::s![..5]).to_vec());
 
-    // 4. Image Embeddings
-    let i_emb_row = img_embs.row(0);
-    let (i_mean, i_std) = get_stats(i_emb_row);
+    let i_row = img_embs.row(0);
+    let (i_mean, i_std) = get_stats(i_row);
     println!("Image Embeds[0] - Mean: {:.6}, Std: {:.6}", i_mean, i_std);
-    println!("Image Embeds[0] (first 5): {:?}", i_emb_row.slice(ndarray::s![..5]).to_vec());
-    // -------------------------------------
 
-    // 5. Calculate SigLIP Similarities
+    // --- 5. RANK RESULTS ---
     let text_emb_vec = text_emb.index_axis(Axis(0), 0);
     let similarities = img_embs.dot(&text_emb_vec);
 
@@ -141,7 +182,6 @@ fn main() -> Result<()> {
         .map(|&sim| sigmoid(sim * config.logit_scale + config.logit_bias))
         .collect();
 
-    // 6. Rank Results
     let mut results: Vec<_> = valid_names.iter().zip(probs.iter()).collect();
     results.sort_by(|a, b| b.1.partial_cmp(a.1).unwrap());
 
@@ -149,8 +189,10 @@ fn main() -> Result<()> {
     println!("Query: '{}'", query_text);
     for (i, (name, prob)) in results.iter().enumerate() {
         let marker = if i == 0 { "⭐ [BEST]" } else { "  " };
-        println!("{} {}: {:.2}", marker, name, *prob * 100.0);
+        println!("{} {}: {:.2}%", marker, name, *prob * 100.0);
     }
+
+    let _ = perf_main();
 
     Ok(())
 }

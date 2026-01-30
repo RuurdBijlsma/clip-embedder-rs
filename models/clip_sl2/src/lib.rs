@@ -1,3 +1,5 @@
+pub mod perf;
+
 use image::{DynamicImage, GenericImageView};
 use ndarray::{Array2, Array4, ArrayView, IxDyn};
 use ort::session::{Session, builder::GraphOptimizationLevel};
@@ -38,7 +40,6 @@ impl SigLipVisionModel {
     }
 
     pub fn preprocess(&self, img: &DynamicImage) -> Array4<f32> {
-        // SigLIP 2 uses "squash" resize (non-aspect-ratio preserving)
         let resized = img.resize_exact(
             self.image_size,
             self.image_size,
@@ -46,7 +47,6 @@ impl SigLipVisionModel {
         );
         let rgb = resized.to_rgb8();
 
-        // SigLIP 2 normalization: (val - 0.5) / 0.5
         let mean = [0.5f32, 0.5, 0.5];
         let std = [0.5f32, 0.5, 0.5];
 
@@ -71,6 +71,19 @@ impl SigLipVisionModel {
         .unwrap()
     }
 
+    pub fn inference(&mut self, input: Array4<f32>) -> Result<Array2<f32>, ClipError> {
+        let input_tensor = Value::from_array(input)?;
+        let outputs = self
+            .session
+            .run(ort::inputs!["pixel_values" => input_tensor])?;
+
+        let (shape_ort, data) = outputs[0].try_extract_tensor::<f32>()?;
+        let shape_usize: Vec<usize> = shape_ort.iter().map(|&x| x as usize).collect();
+
+        let view = ArrayView::from_shape(IxDyn(&shape_usize), data)?;
+        Ok(view.into_dimensionality::<ndarray::Ix2>()?.to_owned())
+    }
+
     pub fn embed_batch(&mut self, images: &[DynamicImage]) -> Result<Array2<f32>, ClipError> {
         let mut batch_array = Array4::zeros((
             images.len(),
@@ -86,16 +99,7 @@ impl SigLipVisionModel {
                 .assign(&processed.slice(ndarray::s![0, .., .., ..]));
         }
 
-        let input_tensor = Value::from_array(batch_array)?;
-        let outputs = self
-            .session
-            .run(ort::inputs!["pixel_values" => input_tensor])?;
-
-        let (shape_ort, data) = outputs[0].try_extract_tensor::<f32>()?;
-        let shape_usize: Vec<usize> = shape_ort.iter().map(|&x| x as usize).collect();
-
-        let view = ArrayView::from_shape(IxDyn(&shape_usize), data)?;
-        Ok(view.into_dimensionality::<ndarray::Ix2>()?.to_owned())
+        self.inference(batch_array)
     }
 }
 
@@ -117,7 +121,6 @@ impl SigLipTextModel {
         let mut tokenizer = Tokenizer::from_file(tokenizer_path)
             .map_err(|e| ClipError::Tokenizer(e.to_string()))?;
 
-        // SigLIP / Gemma uses pad_id 0
         tokenizer.with_padding(Some(PaddingParams {
             strategy: tokenizers::PaddingStrategy::Fixed(context_length),
             pad_id: 0,
@@ -135,17 +138,17 @@ impl SigLipTextModel {
         Ok(Self { session, tokenizer })
     }
 
-    pub fn embed(&mut self, text: &str) -> Result<Array2<f32>, ClipError> {
-        // lowercase to match python .lower()
+    pub fn tokenize(&self, text: &str) -> Result<Array2<i64>, ClipError> {
         let encoding = self
             .tokenizer
             .encode(text.to_lowercase(), true)
             .map_err(|e| ClipError::Tokenizer(e.to_string()))?;
 
         let ids: Vec<i64> = encoding.get_ids().iter().map(|&x| x as i64).collect();
-        let ids_array = Array2::from_shape_vec((1, ids.len()), ids)?;
+        Ok(Array2::from_shape_vec((1, ids.len()), ids)?)
+    }
 
-        // SigLIP export only takes input_ids
+    pub fn inference(&mut self, ids_array: Array2<i64>) -> Result<Array2<f32>, ClipError> {
         let outputs = self.session.run(ort::inputs![
             "input_ids" => Value::from_array(ids_array)?
         ])?;
@@ -157,6 +160,7 @@ impl SigLipTextModel {
         Ok(view.into_dimensionality::<ndarray::Ix2>()?.to_owned())
     }
 
+    // Helper for debug/stats
     pub fn get_ids(&self, text: &str) -> Result<Vec<u32>, ClipError> {
         let encoding = self
             .tokenizer
