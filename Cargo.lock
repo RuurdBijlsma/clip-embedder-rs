@@ -263,6 +263,22 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9330f8b2ff13f34540b44e946ef35111825727b38d33286ef986142615121801"
 
 [[package]]
+name = "clip-rs"
+version = "0.1.0"
+dependencies = [
+ "color-eyre",
+ "image",
+ "ndarray",
+ "num_cpus",
+ "ort",
+ "rayon",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "tokenizers",
+]
+
+[[package]]
 name = "color-eyre"
 version = "0.6.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1122,20 +1138,6 @@ checksum = "c7f86c6eef3d6df15f23bcfb6af487cbd2fed4e5581d58d5bf1f5f8b7f6727dc"
 dependencies = [
  "cc",
  "pkg-config",
-]
-
-[[package]]
-name = "open-clip-rs"
-version = "0.1.0"
-dependencies = [
- "color-eyre",
- "image",
- "ndarray",
- "num_cpus",
- "ort",
- "rayon",
- "thiserror",
- "tokenizers",
 ]
 
 [[package]]
