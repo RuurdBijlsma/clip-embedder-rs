@@ -59,7 +59,7 @@ impl ClipVisionModel {
         let cropped = resized.crop_imm(left, top, self.image_size, self.image_size);
         let rgb = cropped.to_rgb8();
 
-        let mean = [0.48145466, 0.4578275, 0.40821073];
+        let mean = [0.481_454_66, 0.4578275, 0.40821073];
         let std = [0.26862954, 0.26130258, 0.27577711];
 
         let mut pixels = vec![0.0f32; 3 * (self.image_size * self.image_size) as usize];
