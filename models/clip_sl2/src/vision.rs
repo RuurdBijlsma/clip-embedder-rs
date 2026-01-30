@@ -25,7 +25,7 @@ impl SigLipVisionModel {
     /// Preprocesses a single image into a tensor (1, 3, H, W).
     /// # Panics
     /// - If shape contains negative values, shouldn't be possible.
-    #[must_use] 
+    #[must_use]
     pub fn preprocess(&self, img: &DynamicImage) -> Array4<f32> {
         let size = self.config.image_size;
         // resize_exact is used to match the specific pipeline logic provided previously.

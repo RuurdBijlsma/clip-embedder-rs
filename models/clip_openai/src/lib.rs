@@ -3,7 +3,7 @@
     clippy::cast_possible_truncation,
     clippy::cast_sign_loss,
     clippy::cast_precision_loss,
-    clippy::missing_panics_doc,
+    clippy::missing_panics_doc
 )]
 
 use image::{DynamicImage, GenericImageView};

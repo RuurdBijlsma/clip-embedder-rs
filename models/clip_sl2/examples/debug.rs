@@ -1,12 +1,18 @@
+#![allow(
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    clippy::cast_precision_loss
+)]
+
 use clip_sl2::{ModelConfig, SigLipTextModel, SigLipVisionModel};
 use color_eyre::eyre::Result;
 use image::{ImageBuffer, Rgb};
 use ndarray::ArrayView1;
 use std::path::Path;
 
-fn get_stats(data: ArrayView1<f32>) -> (f32, f32) {
+fn get_stats(data: &ArrayView1<f32>) -> (f32, f32) {
     let mean = data.mean().unwrap_or(0.0);
-    let var = data.fold(0.0, |acc, &x| acc + (x - mean).powi(2)) / data.len() as f32;
+    let var = data.fold(0.0, |acc, &x| (x - mean).mul_add(x - mean, acc)) / data.len() as f32;
     (mean, var.sqrt())
 }
 
@@ -19,14 +25,14 @@ fn save_debug_image(pix: &ndarray::Array4<f32>, filename: &str) -> Result<()> {
     for y in 0..height {
         for x in 0..width {
             // Denormalize: (x * std + mean) * 255.
-            let r = ((pix[[0, 0, y, x]] * 0.5 + 0.5) * 255.0).clamp(0.0, 255.0) as u8;
-            let g = ((pix[[0, 1, y, x]] * 0.5 + 0.5) * 255.0).clamp(0.0, 255.0) as u8;
-            let b = ((pix[[0, 2, y, x]] * 0.5 + 0.5) * 255.0).clamp(0.0, 255.0) as u8;
+            let r = (pix[[0, 0, y, x]].mul_add(0.5, 0.5) * 255.0).clamp(0.0, 255.0) as u8;
+            let g = (pix[[0, 1, y, x]].mul_add(0.5, 0.5) * 255.0).clamp(0.0, 255.0) as u8;
+            let b = (pix[[0, 2, y, x]].mul_add(0.5, 0.5) * 255.0).clamp(0.0, 255.0) as u8;
             img_buf.put_pixel(x as u32, y as u32, Rgb([r, g, b]));
         }
     }
     img_buf.save(filename)?;
-    println!("Debug image saved to: {}", filename);
+    println!("Debug image saved to: {filename}");
     Ok(())
 }
 
@@ -44,7 +50,7 @@ fn main() -> Result<()> {
     let mut text = SigLipTextModel::new(
         model_dir.join("text.onnx"),
         model_dir.join("tokenizer.json"),
-        config.clone()
+        config,
     )?;
 
     let query_text = "A photo of Rocks";
@@ -54,19 +60,23 @@ fn main() -> Result<()> {
 
     // 1. Text IDs
     let ids = text.get_ids(query_text)?;
-    let first_10_ids: Vec<i64> = ids.iter().take(10).map(|&x| x as i64).collect();
-    println!("Text Input IDs (first 10): {:?}", first_10_ids);
+    let first_10_ids: Vec<i64> = ids.iter().take(10).map(|&x| i64::from(x)).collect();
+    println!("Text Input IDs (first 10): {first_10_ids:?}");
 
     // 2. Image Preprocessing & Tensor Stats
     let pixel_tensor = vision.preprocess(&img);
     save_debug_image(&pixel_tensor, "debug_input_tensor.png")?;
 
-    let (pix_mean, pix_std) = get_stats(pixel_tensor.view().into_shape_with_order(pixel_tensor.len())?);
-    println!("Image Pixel Values - Mean: {:.6}, Std: {:.6}", pix_mean, pix_std);
+    let (pix_mean, pix_std) = get_stats(
+        &pixel_tensor
+            .view()
+            .into_shape_with_order(pixel_tensor.len())?,
+    );
+    println!("Image Pixel Values - Mean: {pix_mean:.6}, Std: {pix_std:.6}");
 
     // Check first few raw values (first channel, first row)
     let pix_slice = pixel_tensor.slice(ndarray::s![0, 0, 0, ..10]).to_vec();
-    println!("Image Pixel Values (slice): {:?}", pix_slice);
+    println!("Image Pixel Values (slice): {pix_slice:?}");
 
     // 3. Inference Embeddings
     let text_ids = text.tokenize(query_text)?;
@@ -75,15 +85,21 @@ fn main() -> Result<()> {
 
     // Text Embed Stats
     let t_row = text_embeds.row(0);
-    let (t_mean, t_std) = get_stats(t_row);
-    println!("Text Embeds[0] - Mean: {:.6}, Std: {:.6}", t_mean, t_std);
-    println!("Text Embeds[0] (first 5): {:?}", t_row.slice(ndarray::s![..5]).to_vec());
+    let (t_mean, t_std) = get_stats(&t_row);
+    println!("Text Embeds[0] - Mean: {t_mean:.6}, Std: {t_std:.6}");
+    println!(
+        "Text Embeds[0] (first 5): {:?}",
+        t_row.slice(ndarray::s![..5]).to_vec()
+    );
 
     // Image Embed Stats
     let i_row = image_embeds.row(0);
-    let (i_mean, i_std) = get_stats(i_row);
-    println!("Image Embeds[0] - Mean: {:.6}, Std: {:.6}", i_mean, i_std);
-    println!("Image Embeds[0] (first 5): {:?}", i_row.slice(ndarray::s![..5]).to_vec());
+    let (i_mean, i_std) = get_stats(&i_row);
+    println!("Image Embeds[0] - Mean: {i_mean:.6}, Std: {i_std:.6}");
+    println!(
+        "Image Embeds[0] (first 5): {:?}",
+        i_row.slice(ndarray::s![..5]).to_vec()
+    );
 
     Ok(())
 }

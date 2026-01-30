@@ -1,4 +1,4 @@
-use clip_sl2::{sigmoid, ModelConfig, SigLipTextModel, SigLipVisionModel};
+use clip_sl2::{ModelConfig, SigLipTextModel, SigLipVisionModel, sigmoid};
 use color_eyre::eyre::Result;
 use ndarray::Axis;
 use std::path::Path;
@@ -18,14 +18,20 @@ fn main() -> Result<()> {
     let mut text = SigLipTextModel::new(
         model_dir.join("text.onnx"),
         model_dir.join("tokenizer.json"),
-        config.clone()
+        config.clone(),
     )?;
 
     // --- 2. Load Data ---
     let query_text = "A photo of Rocks";
     let image_files = vec![
-        "beach_rocks.jpg", "beetle_car.jpg", "cat_face.jpg", "dark_sunset.jpg",
-        "palace.jpg", "rocky_coast.jpg", "stacked_plates.jpg", "verdant_cliff.jpg",
+        "beach_rocks.jpg",
+        "beetle_car.jpg",
+        "cat_face.jpg",
+        "dark_sunset.jpg",
+        "palace.jpg",
+        "rocky_coast.jpg",
+        "stacked_plates.jpg",
+        "verdant_cliff.jpg",
     ];
 
     let mut images = Vec::new();
@@ -53,7 +59,7 @@ fn main() -> Result<()> {
 
     let probs: Vec<f32> = similarities
         .iter()
-        .map(|&sim| sigmoid(sim * config.logit_scale + config.logit_bias))
+        .map(|&sim| sigmoid(sim.mul_add(config.logit_scale, config.logit_bias)))
         .collect();
 
     // --- 5. Sort and Print ---
@@ -61,7 +67,7 @@ fn main() -> Result<()> {
     results.sort_by(|a, b| b.1.partial_cmp(a.1).unwrap());
 
     println!("\n--- SEARCH RESULTS ---");
-    println!("Query: '{}'", query_text);
+    println!("Query: '{query_text}'");
     for (i, (name, prob)) in results.iter().enumerate() {
         let marker = if i == 0 { "★ [BEST]" } else { "  " };
         println!("{} {}: {:.2}%", marker, name, *prob * 100.0);

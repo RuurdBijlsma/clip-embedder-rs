@@ -1,4 +1,6 @@
-use clip_sl2::{sigmoid, ModelConfig, SigLipTextModel, SigLipVisionModel};
+#![allow(clippy::similar_names)]
+
+use clip_sl2::{ModelConfig, SigLipTextModel, SigLipVisionModel, sigmoid};
 use color_eyre::eyre::Result;
 use ndarray::Axis;
 use std::path::Path;
@@ -18,7 +20,7 @@ fn main() -> Result<()> {
     let mut text = SigLipTextModel::new(
         model_dir.join("text.onnx"),
         model_dir.join("tokenizer.json"),
-        config.clone()
+        config.clone(),
     )?;
 
     let sample_img = image::open(&img_path)?;
@@ -44,9 +46,18 @@ fn main() -> Result<()> {
     let img_emb = vision.inference(img_tensor)?;
     let duration_v_inf = start_v_inf.elapsed();
 
-    println!("Vision Preprocessing:  {:>8.2}ms", duration_v_pre.as_secs_f64() * 1000.0);
-    println!("Vision Inference:      {:>8.2}ms", duration_v_inf.as_secs_f64() * 1000.0);
-    println!("Vision Total:          {:>8.2}ms", (duration_v_pre + duration_v_inf).as_secs_f64() * 1000.0);
+    println!(
+        "Vision Preprocessing:  {:>8.2}ms",
+        duration_v_pre.as_secs_f64() * 1000.0
+    );
+    println!(
+        "Vision Inference:      {:>8.2}ms",
+        duration_v_inf.as_secs_f64() * 1000.0
+    );
+    println!(
+        "Vision Total:          {:>8.2}ms",
+        (duration_v_pre + duration_v_inf).as_secs_f64() * 1000.0
+    );
 
     // --- Text Pipeline Timing ---
     let start_t_pre = Instant::now();
@@ -57,9 +68,18 @@ fn main() -> Result<()> {
     let text_emb = text.inference(text_tensor)?;
     let duration_t_inf = start_t_inf.elapsed();
 
-    println!("Text Preprocessing:    {:>8.2}ms", duration_t_pre.as_secs_f64() * 1000.0);
-    println!("Text Inference:        {:>8.2}ms", duration_t_inf.as_secs_f64() * 1000.0);
-    println!("Text Total:            {:>8.2}ms", (duration_t_pre + duration_t_inf).as_secs_f64() * 1000.0);
+    println!(
+        "Text Preprocessing:    {:>8.2}ms",
+        duration_t_pre.as_secs_f64() * 1000.0
+    );
+    println!(
+        "Text Inference:        {:>8.2}ms",
+        duration_t_inf.as_secs_f64() * 1000.0
+    );
+    println!(
+        "Text Total:            {:>8.2}ms",
+        (duration_t_pre + duration_t_inf).as_secs_f64() * 1000.0
+    );
 
     // --- Result Calculation ---
     let text_emb_vec = text_emb.index_axis(Axis(0), 0);

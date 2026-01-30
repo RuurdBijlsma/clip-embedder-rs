@@ -2,7 +2,7 @@
 
 use clip_openai::{ClipTextModel, ClipVisionModel, softmax};
 use color_eyre::eyre::Result;
-use ndarray::{Axis, ArrayView1};
+use ndarray::{ArrayView1, Axis};
 use serde::Deserialize;
 use std::fs;
 
@@ -30,8 +30,14 @@ fn main() -> Result<()> {
 
     let query_text = "a photo of rocks";
     let image_files = vec![
-        "beach_rocks.jpg", "beetle_car.jpg", "cat_face.jpg", "dark_sunset.jpg",
-        "palace.jpg", "rocky_coast.jpg", "stacked_plates.jpg", "verdant_cliff.jpg"
+        "beach_rocks.jpg",
+        "beetle_car.jpg",
+        "cat_face.jpg",
+        "dark_sunset.jpg",
+        "palace.jpg",
+        "rocky_coast.jpg",
+        "stacked_plates.jpg",
+        "verdant_cliff.jpg",
     ];
 
     // 1. Load Config
@@ -44,7 +50,7 @@ fn main() -> Result<()> {
     let mut text_model = ClipTextModel::new(
         get_asset("model/text.onnx"),
         get_asset("model/tokenizer.json"),
-        77
+        77,
     )?;
 
     // 3. Process Images
@@ -87,13 +93,19 @@ fn main() -> Result<()> {
     let t_emb_view = text_emb.row(0);
     let (t_mean, t_std) = get_stats(&t_emb_view);
     println!("Text Embeds - Mean: {t_mean:.6}, Std: {t_std:.6}");
-    println!("Text Embeds (first 5): {:?}", t_emb_view.slice(ndarray::s![..5]).to_vec());
+    println!(
+        "Text Embeds (first 5): {:?}",
+        t_emb_view.slice(ndarray::s![..5]).to_vec()
+    );
 
     // 4. Image Embeddings (First Image)
     let i_emb_view = img_embs.row(0);
     let (i_mean, i_std) = get_stats(&i_emb_view);
     println!("Image Embeds[0] - Mean: {i_mean:.6}, Std: {i_std:.6}");
-    println!("Image Embeds[0] (first 5): {:?}", i_emb_view.slice(ndarray::s![..5]).to_vec());
+    println!(
+        "Image Embeds[0] (first 5): {:?}",
+        i_emb_view.slice(ndarray::s![..5]).to_vec()
+    );
     // -------------------------------------
 
     // 5. Calculate Similarities

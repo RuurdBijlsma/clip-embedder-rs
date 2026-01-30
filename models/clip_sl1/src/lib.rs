@@ -2,7 +2,7 @@
 
 use image::DynamicImage;
 use ndarray::{Array2, Array4};
-use ort::session::{builder::GraphOptimizationLevel, Session};
+use ort::session::{Session, builder::GraphOptimizationLevel};
 use ort::value::Value;
 use rayon::prelude::*;
 use std::path::Path;
