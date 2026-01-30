@@ -1,7 +1,7 @@
 /target
 .idea
-assets/model/*
-!assets/model/export_onnx.py
+models/clip_openai/assets/model/*
+!models/clip_openai/assets/model/export_onnx_vit.py
 .fastembed_cache
-!assets/model/README.md
-assets/model_info
+!models/clip_openai/assets/model/README.md
+models/clip_openai/assets/model_info

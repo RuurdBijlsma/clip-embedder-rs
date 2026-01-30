@@ -1,0 +1,16 @@
+[package]
+name = "clip_openai"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+color-eyre = "0.6.5"
+ort = { version = "2.0.0-rc.11", features = ["ndarray", "load-dynamic"] }
+ndarray = { version = "0.17.2", features = ["rayon"] }
+image = "0.25.9"
+tokenizers = { version = "0.22.2" }
+rayon = "1.11.0"
+thiserror = "2.0.18"
+num_cpus = "1.17.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
