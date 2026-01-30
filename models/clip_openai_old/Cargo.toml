@@ -1,0 +1,17 @@
+[package]
+name = "clip_openai_old"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+ort = { version="2.0.0-rc.9", features = [ "cuda"] }
+ndarray = "0.16"
+tokenizers = { version = "0.21.0", default-features = false, features = [ "onig" ] }
+tracing-subscriber = { version = "0.3", default-features = false, features = [ "env-filter", "fmt" ] }
+image = "0.25.5"
+anyhow = "1.0.95"
+rayon = "1.10.0"
+
+[features]
+load-dynamic = [ "ort/load-dynamic" ]
+cuda = [ "ort/cuda" ]

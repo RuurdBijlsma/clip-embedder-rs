@@ -3,4 +3,5 @@ resolver = "3"
 members = [
     "models/clip_openai",
     "models/clip_sl1",
+    # "models/clip_openai_old", # This one is broken for some reason, but it's superseeded by clip_openai anyways
 ]

@@ -1,7 +1,4 @@
 /target
 .idea
-models/clip_openai/assets/model/*
-!models/clip_openai/assets/model/export_onnx_vit.py
 .fastembed_cache
-!models/clip_openai/assets/model/README.md
-models/clip_openai/assets/model_info
+.venv
