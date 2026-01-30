@@ -35,8 +35,8 @@ fn main() -> Result<()> {
     // Print output
     let img_emb = model.embed_image(&img)?;
     let text_emb = model.embed_text("rocks in the rock business")?;
-    println!("Image Embedding [0:20]\n{:?}", img_emb.iter().take(20).collect::<Vec<_>>());
+    println!("Image Embedding [0:50]\n{:?}", img_emb.iter().take(50).collect::<Vec<_>>());
     println!();
-    println!("Text Embedding [0:20]\n{:?}", text_emb.iter().take(20).collect::<Vec<_>>());
+    println!("Text Embedding [0:50]\n{:?}", text_emb.iter().take(50).collect::<Vec<_>>());
     Ok(())
 }
