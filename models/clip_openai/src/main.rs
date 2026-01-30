@@ -1,3 +1,5 @@
+#![allow(clippy::cast_precision_loss)]
+
 use clip_openai::{ClipTextModel, ClipVisionModel, softmax};
 use color_eyre::eyre::Result;
 use ndarray::{Axis, ArrayView1};
@@ -16,9 +18,9 @@ struct ModelConfig {
 }
 
 /// Helper to calculate standard deviation since ndarray-stats is a separate crate
-fn get_stats(data: ArrayView1<f32>) -> (f32, f32) {
+fn get_stats(data: &ArrayView1<f32>) -> (f32, f32) {
     let mean = data.mean().unwrap_or(0.0);
-    let std = data.fold(0.0, |acc, &x| acc + (x - mean).powi(2));
+    let std = data.fold(0.0, |acc, &x| (x - mean).mul_add(x - mean, acc));
     let std = (std / data.len() as f32).sqrt();
     (mean, std)
 }
@@ -61,7 +63,7 @@ fn main() -> Result<()> {
     let img_embs = vision_model.embed_batch(&images)?;
 
     // 4. Process Text
-    println!("Encoding query: '{}'...", query_text);
+    println!("Encoding query: '{query_text}'...");
     let text_emb = text_model.embed(query_text)?;
 
     // --- DEBUG: MATCHING PYTHON OUTPUT ---
@@ -74,23 +76,23 @@ fn main() -> Result<()> {
     // 2. Image Input Tensors (of the first image)
     let pix = vision_model.preprocess(&images[0]);
     let pix_view = pix.view().into_shape_with_order(pix.len())?;
-    let (pix_mean, pix_std) = get_stats(pix_view);
-    println!("Image Pixel Values - Mean: {:.6}, Std: {:.6}", pix_mean, pix_std);
+    let (pix_mean, pix_std) = get_stats(&pix_view);
+    println!("Image Pixel Values - Mean: {pix_mean:.6}, Std: {pix_std:.6}");
 
     // Slice: first 5 pixels of the first channel, first row
     let pix_slice = pix.slice(ndarray::s![0, 0, 0, ..5]).to_vec();
-    println!("Image Pixel Values (slice): {:?}", pix_slice);
+    println!("Image Pixel Values (slice): {pix_slice:?}");
 
     // 3. Text Embeddings
     let t_emb_view = text_emb.row(0);
-    let (t_mean, t_std) = get_stats(t_emb_view);
-    println!("Text Embeds - Mean: {:.6}, Std: {:.6}", t_mean, t_std);
+    let (t_mean, t_std) = get_stats(&t_emb_view);
+    println!("Text Embeds - Mean: {t_mean:.6}, Std: {t_std:.6}");
     println!("Text Embeds (first 5): {:?}", t_emb_view.slice(ndarray::s![..5]).to_vec());
 
     // 4. Image Embeddings (First Image)
     let i_emb_view = img_embs.row(0);
-    let (i_mean, i_std) = get_stats(i_emb_view);
-    println!("Image Embeds[0] - Mean: {:.6}, Std: {:.6}", i_mean, i_std);
+    let (i_mean, i_std) = get_stats(&i_emb_view);
+    println!("Image Embeds[0] - Mean: {i_mean:.6}, Std: {i_std:.6}");
     println!("Image Embeds[0] (first 5): {:?}", i_emb_view.slice(ndarray::s![..5]).to_vec());
     // -------------------------------------
 
@@ -105,7 +107,7 @@ fn main() -> Result<()> {
     results.sort_by(|a, b| b.1.partial_cmp(a.1).unwrap());
 
     println!("\n--- SEARCH RESULTS ---");
-    println!("Query: '{}'", query_text);
+    println!("Query: '{query_text}'");
     for (i, (name, prob)) in results.iter().enumerate() {
         let marker = if i == 0 { "⭐ [BEST]" } else { "  " };
         println!("{} {}: {:.2}%", marker, name, *prob * 100.0);

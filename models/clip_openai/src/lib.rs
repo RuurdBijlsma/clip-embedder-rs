@@ -1,3 +1,11 @@
+#![allow(
+    clippy::missing_errors_doc,
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    clippy::cast_precision_loss,
+    clippy::missing_panics_doc,
+)]
+
 use image::{DynamicImage, GenericImageView};
 use ndarray::{Array2, Array4, ArrayView, IxDyn};
 use ort::session::{Session, builder::GraphOptimizationLevel};
@@ -37,6 +45,7 @@ impl ClipVisionModel {
         })
     }
 
+    #[must_use]
     pub fn preprocess(&self, img: &DynamicImage) -> Array4<f32> {
         let (w, h) = img.dimensions();
 
@@ -71,7 +80,7 @@ impl ClipVisionModel {
             .enumerate()
             .for_each(|(c, channel_slice)| {
                 for i in 0..channel_step {
-                    let val = raw_samples[i * 3 + c] as f32 / 255.0;
+                    let val = f32::from(raw_samples[i * 3 + c]) / 255.0;
                     channel_slice[i] = (val - mean[c]) / std[c];
                 }
             });
@@ -157,11 +166,11 @@ impl ClipTextModel {
             .encode(text, true)
             .map_err(|e| ClipError::Tokenizer(e.to_string()))?;
 
-        let ids: Vec<i64> = encoding.get_ids().iter().map(|&x| x as i64).collect();
+        let ids: Vec<i64> = encoding.get_ids().iter().map(|&x| i64::from(x)).collect();
         let masks: Vec<i64> = encoding
             .get_attention_mask()
             .iter()
-            .map(|&x| x as i64)
+            .map(|&x| i64::from(x))
             .collect();
 
         let ids_array = Array2::from_shape_vec((1, ids.len()), ids)?;
@@ -189,6 +198,7 @@ impl ClipTextModel {
     }
 }
 
+#[must_use]
 pub fn softmax(x: &ndarray::Array1<f32>) -> ndarray::Array1<f32> {
     let max_val = x.fold(f32::NEG_INFINITY, |a, &b| a.max(b));
     let exps = x.mapv(|v| (v - max_val).exp());

@@ -1,6 +1,6 @@
 use crate::{ClipError, ModelConfig};
 use ndarray::{Array2, ArrayView, IxDyn};
-use ort::session::{builder::GraphOptimizationLevel, Session};
+use ort::session::{Session, builder::GraphOptimizationLevel};
 use ort::value::Value;
 use std::path::Path;
 use tokenizers::{PaddingParams, Tokenizer, TruncationParams};
@@ -48,25 +48,30 @@ impl SigLipTextModel {
     }
 
     /// Tokenizes text into input IDs.
-    /// Returns (1, ContextLen)
+    /// Returns (1, `ContextLen`)
     pub fn tokenize(&self, text: &str) -> Result<Array2<i64>, ClipError> {
         let encoding = self
             .tokenizer
             .encode(text.to_lowercase(), true)
             .map_err(|e| ClipError::Tokenizer(e.to_string()))?;
 
-        let ids: Vec<i64> = encoding.get_ids().iter().map(|&x| x as i64).collect();
+        let ids: Vec<i64> = encoding.get_ids().iter().map(|&x| i64::from(x)).collect();
         Ok(Array2::from_shape_vec((1, ids.len()), ids)?)
     }
 
-    /// Batch inference. Input shape: (Batch, ContextLen)
+    /// Batch inference. Input shape: (Batch, `ContextLen`)
+    /// # Panics
+    /// - If shape contains values that don't fit in a `usize`.
     pub fn inference(&mut self, ids_array: Array2<i64>) -> Result<Array2<f32>, ClipError> {
         let outputs = self.session.run(ort::inputs![
             "input_ids" => Value::from_array(ids_array)?
         ])?;
 
         let (shape_ort, data) = outputs[0].try_extract_tensor::<f32>()?;
-        let shape_usize: Vec<usize> = shape_ort.iter().map(|&x| x as usize).collect();
+        let shape_usize: Vec<usize> = shape_ort
+            .iter()
+            .map(|&x| usize::try_from(x).expect("Shape value does not fit in usize"))
+            .collect();
 
         let view = ArrayView::from_shape(IxDyn(&shape_usize), data)?;
         Ok(view.into_dimensionality::<ndarray::Ix2>()?.to_owned())

@@ -1,3 +1,5 @@
+#![allow(clippy::missing_errors_doc)]
+
 use image::DynamicImage;
 use ndarray::{Array2, Array4};
 use ort::session::{builder::GraphOptimizationLevel, Session};
@@ -61,7 +63,7 @@ impl SigLipVisionModel {
             .enumerate()
             .for_each(|(c, channel_slice)| {
                 for i in 0..channel_step {
-                    channel_slice[i] = (raw_samples[i * 3 + c] as f32 / 127.5) - 1.0;
+                    channel_slice[i] = (f32::from(raw_samples[i * 3 + c]) / 127.5) - 1.0;
                 }
             });
 
@@ -121,7 +123,7 @@ impl SigLipTextModel {
             .encode(text, true)
             .map_err(|e| SigLipError::Tokenizer(e.to_string()))?;
 
-        let ids: Vec<i64> = encoding.get_ids().iter().map(|&x| x as i64).collect();
+        let ids: Vec<i64> = encoding.get_ids().iter().map(|&x| i64::from(x)).collect();
         let seq_len = ids.len();
         let array = Array2::from_shape_vec((1, seq_len), ids)?;
 
