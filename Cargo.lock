@@ -293,6 +293,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "clip_sl2"
+version = "0.1.0"
+dependencies = [
+ "color-eyre",
+ "image",
+ "ndarray",
+ "num_cpus",
+ "ort",
+ "rayon",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "tokenizers",
+]
+
+[[package]]
 name = "color-eyre"
 version = "0.6.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"

@@ -1,5 +1,5 @@
 [package]
-name = "clip_sl1"
+name = "clip_sl2"
 version = "0.1.0"
 edition = "2024"
 
@@ -12,3 +12,5 @@ rayon = "1.11.0"
 thiserror = "2.0.18"
 num_cpus = "1.17.0"
 color-eyre = "0.6.5"
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.149"
