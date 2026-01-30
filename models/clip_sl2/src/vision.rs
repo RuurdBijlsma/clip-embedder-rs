@@ -1,5 +1,5 @@
 use crate::{ClipError, ModelConfig};
-use image::{DynamicImage, GenericImageView};
+use image::DynamicImage;
 use ndarray::{Array2, Array4, ArrayView, IxDyn};
 use ort::session::{builder::GraphOptimizationLevel, Session};
 use ort::value::Value;
