@@ -25,6 +25,34 @@ fn get_stats(data: ArrayView1<f32>) -> (f32, f32) {
     (mean, var.sqrt())
 }
 
+use image::{ImageBuffer, Rgb};
+
+/// Saves the preprocessed tensor to a file for visual inspection
+fn save_debug_image(pix: &ndarray::Array4<f32>, path: &str) -> Result<()> {
+    // pix is [1, 3, H, W]
+    let height = pix.shape()[2];
+    let width = pix.shape()[3];
+
+    // Create an ImageBuffer to hold the RGB data
+    let mut img_buf = ImageBuffer::new(width as u32, height as u32);
+
+    for y in 0..height {
+        for x in 0..width {
+            // SigLIP 2 De-normalization: (val * 0.5) + 0.5
+            // Then scale to 255
+            let r = ((pix[[0, 0, y, x]] * 0.5 + 0.5) * 255.0).clamp(0.0, 255.0) as u8;
+            let g = ((pix[[0, 1, y, x]] * 0.5 + 0.5) * 255.0).clamp(0.0, 255.0) as u8;
+            let b = ((pix[[0, 2, y, x]] * 0.5 + 0.5) * 255.0).clamp(0.0, 255.0) as u8;
+
+            img_buf.put_pixel(x as u32, y as u32, Rgb([r, g, b]));
+        }
+    }
+
+    img_buf.save(path)?;
+    println!("Debug image saved to: {}", path);
+    Ok(())
+}
+
 fn main() -> Result<()> {
     color_eyre::install()?;
 
@@ -81,6 +109,7 @@ fn main() -> Result<()> {
 
     // 2. Image Pixel Values (First Image)
     let pix = vision_model.preprocess(&images[0]);
+    save_debug_image(&pix, "debug_input_tensor.png")?;
     // Flatten for stats
     let pix_flat = pix.view().into_shape_with_order(pix.len())?;
     let (pix_mean, pix_std) = get_stats(pix_flat);
