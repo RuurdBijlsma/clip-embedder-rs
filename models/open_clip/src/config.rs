@@ -51,8 +51,17 @@ pub struct TextCfg {
 pub struct PreprocessCfg {
     pub mean: [f32; 3],
     pub std: [f32; 3],
+    #[serde(default = "default_interpolation")]
     pub interpolation: String,
+    #[serde(default = "default_resize_mode")]
     pub resize_mode: String,
+}
+
+fn default_interpolation() -> String {
+    "bicubic".to_string()
+}
+fn default_resize_mode() -> String {
+    "shortest".to_string()
 }
 
 impl OpenClipConfig {
