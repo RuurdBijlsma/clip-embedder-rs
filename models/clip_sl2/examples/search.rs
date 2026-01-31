@@ -70,7 +70,7 @@ fn main() -> Result<()> {
     println!("Query: '{query_text}'");
     for (i, (name, prob)) in results.iter().enumerate() {
         let marker = if i == 0 { "★ [BEST]" } else { "  " };
-        println!("{} {}: {:.2}%", marker, name, *prob * 100.0);
+        println!("{} {}: {:.2}", marker, name, *prob * 100.0);
     }
 
     Ok(())

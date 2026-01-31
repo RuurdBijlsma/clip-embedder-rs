@@ -54,7 +54,7 @@ impl OnnxRunner {
 
     /// Runs the vision tower.
     /// Expects shape (Batch, 3, H, W).
-    pub fn run_vision(&self, pixel_values: Array4<f32>) -> Result<Array2<f32>> {
+    pub fn run_vision(&mut self, pixel_values: Array4<f32>) -> Result<Array2<f32>> {
         let input_name = self.pixel_values_name
             .as_deref()
             .ok_or_eyre("Model does not appear to accept image inputs (no 'pixel_values' or 'input' node found)")?;
@@ -65,7 +65,7 @@ impl OnnxRunner {
         // 2. Run
         let outputs = self.session.run(ort::inputs![
             input_name => input_tensor
-        ]?)?;
+        ])?;
 
         // 3. Extract Output (Batch, EmbedDim)
         // We assume the first output is the embeddings.
@@ -82,7 +82,7 @@ impl OnnxRunner {
     /// Expects `input_ids` and optional `attention_mask`.
     ///
     /// If the ONNX model doesn't ask for an attention mask, the `mask` argument is ignored.
-    pub fn run_text(&self, ids: Array2<i64>, mask: Array2<i64>) -> Result<Array2<f32>> {
+    pub fn run_text(&mut self, ids: Array2<i64>, mask: Array2<i64>) -> Result<Array2<f32>> {
         let id_name = self.input_ids_name
             .as_deref()
             .ok_or_eyre("Model does not appear to accept text inputs (no 'input_ids' node found)")?;
@@ -98,12 +98,12 @@ impl OnnxRunner {
             self.session.run(ort::inputs![
                 id_name => id_tensor,
                 mask_name => mask_tensor
-            ]?)?
+            ])?
         } else {
             // Case B: Model ignores mask (SigLIP)
             self.session.run(ort::inputs![
                 id_name => id_tensor
-            ]?)?
+            ])?
         };
 
         // 2. Extract Output

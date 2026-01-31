@@ -13,11 +13,11 @@ use text::TextProcessor;
 use vision::VisionProcessor;
 
 pub struct ClipEmbedder {
-    config: ModelConfig,
-    vision: VisionProcessor,
-    text: TextProcessor,
-    vision_ort: OnnxRunner,
-    text_ort: OnnxRunner,
+    pub config: ModelConfig,
+    pub vision: VisionProcessor,
+    pub text: TextProcessor,
+    pub vision_ort: OnnxRunner,
+    pub text_ort: OnnxRunner,
 }
 
 impl ClipEmbedder {
@@ -52,22 +52,24 @@ impl ClipEmbedder {
 
     // --- EMBEDDING (Same as before) ---
 
-    pub fn embed_image(&self, image: &DynamicImage) -> Result<Vec<f32>> {
+    pub fn embed_image(&mut self, image: &DynamicImage) -> Result<Vec<f32>> {
         let input = self.vision.process(image)?;
-        Ok(self.vision_ort.run_vision(input)?.into_raw_vec())
+        let (vec, _offset) = self.vision_ort.run_vision(input)?.into_raw_vec_and_offset();
+        Ok(vec)
     }
 
-    pub fn embed_text(&self, text: &str) -> Result<Vec<f32>> {
+    pub fn embed_text(&mut self, text: &str) -> Result<Vec<f32>> {
         let (ids, mask) = self.text.process(text)?;
-        Ok(self.text_ort.run_text(ids, mask)?.into_raw_vec())
+        let (vec, _offset) = self.text_ort.run_text(ids, mask)?.into_raw_vec_and_offset();
+        Ok(vec)
     }
 
-    pub fn embed_images(&self, images: &[DynamicImage]) -> Result<Array2<f32>> {
+    pub fn embed_images(&mut self, images: &[DynamicImage]) -> Result<Array2<f32>> {
         let input = self.vision.process_batch(images)?;
         self.vision_ort.run_vision(input)
     }
 
-    pub fn embed_texts(&self, texts: &[String]) -> Result<Array2<f32>> {
+    pub fn embed_texts(&mut self, texts: &[String]) -> Result<Array2<f32>> {
         let (ids, mask) = self.text.process_batch(texts)?;
         self.text_ort.run_text(ids, mask)
     }
@@ -134,3 +136,5 @@ fn softmax_inplace(x: &mut ndarray::ArrayViewMut1<f32>) {
         *v /= sum;
     }
 }
+
+

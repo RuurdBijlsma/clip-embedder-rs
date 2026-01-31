@@ -1,4 +1,4 @@
-use crate::config::{ModelConfig, SpecialTokensMap};
+use crate::config::{ModelConfig, ModelType, SpecialTokensMap};
 use color_eyre::eyre::{Context, OptionExt, Result};
 use ndarray::Array2;
 use std::path::Path;
@@ -7,6 +7,7 @@ use tokenizers::{PaddingParams, PaddingStrategy, Tokenizer, TruncationParams};
 #[derive(Debug)]
 pub struct TextProcessor {
     tokenizer: Tokenizer,
+    lowercase: bool,
 }
 
 impl TextProcessor {
@@ -22,8 +23,10 @@ impl TextProcessor {
         config: &ModelConfig,
     ) -> Result<Self> {
         // 1. Load the base Tokenizer
-        let mut tokenizer = Tokenizer::from_file(&tokenizer_path)
-            .wrap_err_with(|| format!("Failed to load tokenizer from {:?}", tokenizer_path.as_ref()))?;
+        let mut tokenizer = Tokenizer::from_file(&tokenizer_path).expect(&format!(
+            "Failed to load tokenizer from {:?}",
+            tokenizer_path.as_ref()
+        ));
 
         // 2. Load Special Tokens Map to find the Pad Token string
         let map = SpecialTokensMap::from_file(&tokens_map_path)
@@ -37,17 +40,15 @@ impl TextProcessor {
             .map(|t| t.content)
             .ok_or_eyre("No 'pad_token' found in special_tokens_map.json")?;
 
-        let pad_id = tokenizer
-            .token_to_id(&pad_token_str)
-            .ok_or_eyre(format!(
-                "Tokenizer does not contain the pad token ID for string: '{}'",
-                pad_token_str
-            ))?;
+        let pad_id = tokenizer.token_to_id(&pad_token_str).ok_or_eyre(format!(
+            "Tokenizer does not contain the pad token ID for string: '{}'",
+            pad_token_str
+        ))?;
 
         // 4. Configure Padding & Truncation
         // We pad to the exact context length (e.g. 64 for SigLIP, 77 for CLIP)
         let context_len = config.context_length;
-        
+
         tokenizer
             .with_padding(Some(PaddingParams {
                 strategy: PaddingStrategy::Fixed(context_len),
@@ -61,7 +62,15 @@ impl TextProcessor {
             }))
             .map_err(|e| color_eyre::eyre::eyre!("Failed to set tokenizer params: {e}"))?;
 
-        Ok(Self { tokenizer })
+        let lowercase = match config.model_type {
+            ModelType::Siglip => true,
+            ModelType::Clip => false,
+        };
+
+        Ok(Self {
+            tokenizer,
+            lowercase,
+        })
     }
 
     /// Tokenizes a single string.
@@ -72,18 +81,27 @@ impl TextProcessor {
         // via its Normalizer pipeline, so we don't need to manually lowercase here
         // unless the specific model config demands it outside the tokenizer pipeline.
         // For standard OpenCLIP/HF exports, the generic encode is sufficient.
+        let cased_text = if self.lowercase {
+            text.to_lowercase()
+        } else {
+            text.to_owned()
+        };
         let encoding = self
             .tokenizer
-            .encode(text, true)
+            .encode(cased_text, true)
             .map_err(|e| color_eyre::eyre::eyre!("Tokenization failed: {e}"))?;
 
         let ids: Vec<i64> = encoding.get_ids().iter().map(|&x| i64::from(x)).collect();
-        let mask: Vec<i64> = encoding.get_attention_mask().iter().map(|&x| i64::from(x)).collect();
+        let mask: Vec<i64> = encoding
+            .get_attention_mask()
+            .iter()
+            .map(|&x| i64::from(x))
+            .collect();
 
         let len = ids.len();
 
-        let ids_array = Array2::from_shape_vec((1, len), ids)
-            .wrap_err("Failed to create input_ids tensor")?;
+        let ids_array =
+            Array2::from_shape_vec((1, len), ids).wrap_err("Failed to create input_ids tensor")?;
 
         let mask_array = Array2::from_shape_vec((1, len), mask)
             .wrap_err("Failed to create attention_mask tensor")?;
@@ -99,9 +117,15 @@ impl TextProcessor {
             return Ok((Array2::zeros((0, 0)), Array2::zeros((0, 0))));
         }
 
+        let cased_texts: Vec<String> = if self.lowercase {
+            texts.iter().map(|s|s.to_lowercase()).collect()
+        } else {
+            texts.to_vec()
+        };
+
         let encodings = self
             .tokenizer
-            .encode_batch(texts.to_vec(), true)
+            .encode_batch(cased_texts, true)
             .map_err(|e| color_eyre::eyre::eyre!("Batch tokenization failed: {e}"))?;
 
         // Calculate dimensions

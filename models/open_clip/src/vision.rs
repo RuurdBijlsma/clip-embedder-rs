@@ -1,8 +1,8 @@
-use crate::config::{ModelConfig, OpenClipConfig};
+use crate::config::ModelConfig;
 use color_eyre::eyre::{Context, Result};
 use image::imageops::FilterType;
 use image::{DynamicImage, GenericImageView};
-use ndarray::{Array4, ArrayBase, OwnedRepr, Dim};
+use ndarray::Array4;
 use rayon::prelude::*;
 
 #[derive(Debug, Clone, Copy)]
@@ -135,12 +135,10 @@ impl VisionProcessor {
 
         let tensors = tensors?;
 
-        // Stack them
-        // Note: This is a bit allocation-heavy (vec of arrays -> one big array),
-        // but safe and clean. For massive batches, we could pre-allocate one big vector.
+        // Use concatenate instead of stack
         let views: Vec<_> = tensors.iter().map(|a| a.view()).collect();
-        let batch = ndarray::stack(ndarray::Axis(0), &views)
-            .wrap_err("Failed to stack image batch")?;
+        let batch = ndarray::concatenate(ndarray::Axis(0), &views)
+            .wrap_err("Failed to concatenate image batch")?;
 
         Ok(batch)
     }
