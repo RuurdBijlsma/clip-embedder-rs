@@ -1,3 +1,2 @@
-model/*
-!model/export_onnx.py
-!model/README.md
+sl2_model
+timm

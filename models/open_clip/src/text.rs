@@ -21,6 +21,7 @@ impl TextTower {
         config_path: impl AsRef<Path>,
         tokenizer_path: impl AsRef<Path>,
         tokenizer_needs_lowercase: bool,
+        explicit_pad_id: Option<u32>,
     ) -> Result<Self> {
         let session = OnnxSession::new(model_path)?;
         let config = OpenClipConfig::from_file(config_path)?;
@@ -28,12 +29,12 @@ impl TextTower {
         let mut tokenizer = Tokenizer::from_file(tokenizer_path)
             .map_err(|e| ClipError::Tokenizer(e.to_string()))?;
 
-        // Extract pad token from tokenizer itself (most reliable)
+        // Extract pad token from tokenizer itself
         let pad_id = tokenizer
             .get_vocab(true)
             .get("<pad>")
             .copied()
-            .or_else(|| tokenizer.get_vocab(true).get("<|endoftext|>").copied())
+            .or(explicit_pad_id)
             .ok_or_else(|| ClipError::Config("No pad token found in tokenizer".into()))?;
 
         let ctx_len = config.model_cfg.text_cfg.context_length;

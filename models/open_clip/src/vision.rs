@@ -74,13 +74,24 @@ impl VisionTower {
             _ => {
                 let (w, h) = image.dimensions();
                 let scale = size as f32 / w.min(h) as f32;
-                let (nw, nh) = ((w as f32 * scale) as u32, (h as f32 * scale) as u32);
+                let nw = (w as f32 * scale).round() as u32;
+                let nh = (h as f32 * scale).round() as u32;
                 let r = image.resize_exact(nw, nh, interp);
-                r.crop_imm((nw - size) / 2, (nh - size) / 2, size, size)
+                let x = ((nw as f32 - size as f32) / 2.0).round() as u32;
+                let y = ((nh as f32 - size as f32) / 2.0).round() as u32;
+
+                r.crop_imm(x, y, size, size)
             }
         };
 
         let rgb = resized.to_rgb8();
+        if rgb.width() != size || rgb.height() != size {
+            return Err(ClipError::Inference(format!(
+                "Preprocessing failed: expected {}x{}, got {}x{}",
+                size, size, rgb.width(), rgb.height()
+            )));
+        }
+
         let (mean, std) = (
             self.config.preprocess_cfg.mean,
             self.config.preprocess_cfg.std,

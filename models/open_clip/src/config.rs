@@ -1,21 +1,20 @@
+use crate::error::Result;
 use serde::Deserialize;
 use std::fs;
 use std::path::Path;
-use crate::error::Result;
 
 #[derive(Debug, Clone, Deserialize, Default)]
 pub struct LocalConfig {
     #[serde(default)]
     pub tokenizer_needs_lowercase: bool,
+    pub activation_function: Option<String>,
     pub logit_scale: Option<f32>,
     pub logit_bias: Option<f32>,
+    pub pad_id: Option<u32>,
 }
 
 impl LocalConfig {
     pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
-        if !path.as_ref().exists() {
-            return Ok(Self::default());
-        }
         let content = fs::read_to_string(path)?;
         Ok(serde_json::from_str(&content)?)
     }

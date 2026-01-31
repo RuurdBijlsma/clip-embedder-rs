@@ -10,10 +10,18 @@ fn sigmoid(x: f32) -> f32 {
     1.0 / (1.0 + (-x).exp())
 }
 
+fn softmax(logits: &[f32]) -> Vec<f32> {
+    let max_logit = logits.iter().fold(f32::NEG_INFINITY, |a, &b| a.max(b));
+    let exps: Vec<f32> = logits.iter().map(|&l| (l - max_logit).exp()).collect();
+    let sum: f32 = exps.iter().sum();
+    exps.iter().map(|&e| e / sum).collect()
+}
+
 fn main() -> Result<()> {
     color_eyre::install()?;
 
-    let model_dir = PathBuf::from(format!("{ASSETS_FOLDER}/model"));
+    // Switch this path depending on which model you are testing
+    let model_dir = PathBuf::from(format!("{ASSETS_FOLDER}/timm/ViT-SO400M-16-SigLIP2-384"));
     let img_dir = PathBuf::from(format!("{ASSETS_FOLDER}/img"));
 
     println!("🚀 Loading Towers...");
@@ -32,6 +40,7 @@ fn main() -> Result<()> {
         model_dir.join("open_clip_config.json"),
         model_dir.join("tokenizer.json"),
         local_config.tokenizer_needs_lowercase,
+        local_config.pad_id,
     )?;
 
     println!("✅ Loaded in {:.2?}", start.elapsed());
@@ -60,41 +69,46 @@ fn main() -> Result<()> {
     println!("🧠 Embedding {} images...", images.len());
     let start_inf = Instant::now();
 
-    // 2. Run Inference
     let img_embs = vision_tower.embed_images(&images)?;
     let text_embs = text_tower.embed_texts(&[query_text.to_string()])?;
 
     println!("⚡ Inference completed in {:.2?}", start_inf.elapsed());
 
-    // 3. Calculate Similarities (Dot Product)
-    // img_embs is [M, D], text_embs is [1, D].
-    // Similarity is a [M] vector.
+    // 1. Calculate Raw Similarities (Cosine Similarity since embeddings are normalized)
     let text_vec = text_embs.row(0);
     let similarities = img_embs.dot(&text_vec);
 
-    // 4. Calculate Probabilities using LocalConfig math
-    // Formula: sigmoid(similarity * scale + bias)
+    // 2. Apply Scale and Bias to get Logits
     let scale = local_config.logit_scale.unwrap_or(1.0);
     let bias = local_config.logit_bias.unwrap_or(0.0);
-
-    let probs: Vec<f32> = similarities
+    let logits: Vec<f32> = similarities
         .iter()
-        .map(|&sim| sigmoid(sim.mul_add(scale, bias)))
+        .map(|&sim| sim.mul_add(scale, bias))
         .collect();
 
-    // 5. Process and Sort Results
+    // 3. Apply the correct Activation Function
+    let activation = local_config.activation_function.as_deref().unwrap_or("softmax");
+    let probs = if activation == "sigmoid" {
+        logits.iter().map(|&l| sigmoid(l)).collect()
+    } else {
+        softmax(&logits)
+    };
+
+    // 4. Process and Sort Results
     let mut results: Vec<_> = valid_names.iter().zip(probs.iter()).collect();
     results.sort_by(|a, b| b.1.partial_cmp(a.1).unwrap());
 
-    // 6. Display Results
-    println!("\n🔍 SEARCH RESULTS (SigLIP Probabilities)");
+    // 5. Display Results
+    println!("\n🔍 SEARCH RESULTS ({})", activation.to_uppercase());
     println!("Query: \"{}\"", query_text);
     println!("Logit Scale: {:.4} | Logit Bias: {:.4}", scale, bias);
-    println!("{:-<50}", "");
+    println!("{:-<60}", "");
 
     for (i, (name, prob)) in results.iter().enumerate() {
         let marker = if i == 0 { "★ [BEST]" } else { "  " };
-        println!("{} {:<20} | {:.2}", marker, name, *prob * 100.0);
+        // Sigmoid probabilities are independent 0.0-1.0
+        // Softmax probabilities sum to 1.0 across the whole list
+        println!("{} {:<20} | {:>6.2}%", marker, name, *prob * 100.0);
     }
 
     Ok(())

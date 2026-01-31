@@ -40,7 +40,7 @@ fn main() -> Result<()> {
     color_eyre::install()?;
 
     let assets = Path::new("models/open_clip/assets");
-    let model_dir = assets.join("model");
+    let model_dir = assets.join("timm/MobileCLIP2-S4-OpenCLIP");
     let img_path = assets.join("img/beach_rocks.jpg");
 
     let mut vision_tower = VisionTower::new(
@@ -57,20 +57,13 @@ fn main() -> Result<()> {
         model_dir.join("open_clip_config.json"),
         model_dir.join("tokenizer.json"),
         local_config.tokenizer_needs_lowercase,
+        local_config.pad_id,
     )?;
 
     let query_text = "A photo of Rocks";
     let img = image::open(&img_path)?;
 
     println!("\n--- DEBUG: OPEN_CLIP DECOUPLED ---");
-    println!(
-        "Likely Type:    {}",
-        if vision_tower.config.preprocess_cfg.resize_mode == "squash" {
-            "SigLIP"
-        } else {
-            "CLIP"
-        }
-    );
     println!(
         "Image Mode:     {}",
         vision_tower.config.preprocess_cfg.resize_mode
