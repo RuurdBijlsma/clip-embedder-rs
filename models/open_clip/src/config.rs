@@ -43,7 +43,6 @@ pub struct VisionCfg {
 #[derive(Debug, Clone, Deserialize)]
 pub struct TextCfg {
     pub context_length: usize,
-    pub vocab_size: usize,
     pub hf_tokenizer_name: Option<String>,
 }
 

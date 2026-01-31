@@ -73,17 +73,6 @@ def export_model(repo_id, output_dir):
     is_siglip = "siglip" in repo_id.lower() or "init_logit_bias" in model_cfg
     default_pad_id = 1 if (is_siglip and "siglip2" not in repo_id.lower()) else 0
 
-    config = {
-        "logit_scale": logit_scale,
-        "logit_bias": logit_bias,
-        "activation_function": 'sigmoid' if is_siglip else 'softmax',
-        "tokenizer_needs_lowercase": True if is_siglip else False,
-        "pad_id": default_pad_id,
-    }
-
-    with open(os.path.join(output_dir, "model_config.json"), "w") as f:
-        json.dump(config, f, indent=2)
-
     # 4. Wrap for ONNX
     class VisualWrapper(nn.Module):
         def __init__(self, model):
@@ -108,6 +97,30 @@ def export_model(repo_id, output_dir):
     img_size = model_cfg.get("vision_cfg", {}).get("image_size")
     ctx_len = model_cfg.get("text_cfg", {}).get("context_length")
     vocab_size = model_cfg.get("text_cfg", {}).get("vocab_size")
+    if vocab_size is None:
+        if hasattr(model, 'vocab_size'):
+            vocab_size = model.vocab_size
+        elif hasattr(model, 'token_embedding'):
+            vocab_size = model.token_embedding.weight.shape[0]
+        else:
+            try:
+                vocab_size = model.transformer.config.vocab_size
+            except AttributeError:
+                raise ValueError("Could not determine vocab_size from config or model structure.")
+
+    # Write model_config.json
+    config = {
+        "logit_scale": logit_scale,
+        "logit_bias": logit_bias,
+        "activation_function": 'sigmoid' if is_siglip else 'softmax',
+        "tokenizer_needs_lowercase": True if is_siglip else False,
+        "pad_id": default_pad_id,
+        "vocab_size": vocab_size,
+    }
+    with open(os.path.join(output_dir, "model_config.json"), "w") as f:
+        json.dump(config, f, indent=2)
+        
+    # Create onnx models
     dummy_image = torch.randn(BATCH_SIZE, 3, img_size, img_size)
     dummy_text = torch.randint(0, vocab_size, (BATCH_SIZE, ctx_len), dtype=torch.long)
 
@@ -155,5 +168,6 @@ if __name__ == "__main__":
     siglip1_hf_id = "timm/ViT-SO400M-14-SigLIP-384"
     big_g_hf_id = "timm/PE-Core-bigG-14-448"
     laion_hf_id = "laion/CLIP-ViT-B-32-laion2B-s34B-b79K"
+    biomed_hf_id = "microsoft/BiomedCLIP-PubMedBERT_256-vit_base_patch16_224"
 
-    export_model(laion_hf_id, "assets/" + laion_hf_id)
+    export_model(biomed_hf_id, "assets/" + biomed_hf_id)

@@ -1,5 +1,13 @@
 # CLIP Embedder in Rust
 
+todo for readme:
+
+* change to only be for open_clip crate
+* say that any CLIP embedding model that supports open_clip should work with this
+* explain workflow: first generate onnx+config files with general_export_onnx.py (filling in the right hf id), then run
+  general_search.rs (filling in hf id)
+* troubleshooting remains same
+
 Run siglip2 CLIP model via ONNX in Rust.
 https://huggingface.co/timm/ViT-SO400M-16-SigLIP2-384
 
