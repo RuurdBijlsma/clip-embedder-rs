@@ -92,10 +92,10 @@ fn main() -> Result<()> {
     let (pix_mean, pix_std) = get_stats(&flat_pixels);
     println!("\n[IMAGE PREPROCESSING]");
     println!("Pixel Stats - Mean: {pix_mean:.6}, Std: {pix_std:.6}");
-    // Slice first 10 pixels of the first row of the Red channel
+    // Slice first 30 pixels of the first row of the Red channel
     println!(
         "Pixel Slice (ch0, row0): {:?}",
-        pixel_tensor.slice(s![0, 0, 0, ..10]).to_vec()
+        pixel_tensor.slice(s![0, 0, 0, ..30]).to_vec()
     );
 
     // --- 3. Inference ---

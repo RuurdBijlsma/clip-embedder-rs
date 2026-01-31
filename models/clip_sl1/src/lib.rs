@@ -2,18 +2,11 @@
 
 use image::DynamicImage;
 use ndarray::{Array2, Array4};
-use ort::session::{Session, builder::GraphOptimizationLevel};
+use ort::session::{builder::GraphOptimizationLevel, Session};
 use ort::value::Value;
 use rayon::prelude::*;
 use std::path::Path;
 use tokenizers::{PaddingParams, Tokenizer, TruncationParams};
-
-// todo:
-// think about separating text & vision model
-// * in ruurd photos they will be in separate places (ingest & api[search])
-// find last discrepency between image preprocessing :( (check pixel difference with python)
-// Make "search-engine" usecase and make benchmark, also make it in python, compare performance.
-// * Maybe use imagenet dataset or something
 
 #[derive(thiserror::Error, Debug)]
 pub enum SigLipError {
@@ -28,8 +21,8 @@ pub enum SigLipError {
 }
 
 pub struct SigLipVisionModel {
-    session: Session,
-    image_size: u32,
+    pub session: Session,
+    pub image_size: u32,
 }
 
 impl SigLipVisionModel {
@@ -46,7 +39,8 @@ impl SigLipVisionModel {
         })
     }
 
-    pub fn embed(&mut self, img: &DynamicImage) -> Result<Vec<f32>, SigLipError> {
+    /// Exposes the preprocessing logic for debugging
+    pub fn preprocess(&self, img: &DynamicImage) -> Result<Array4<f32>, SigLipError> {
         let resized = img.resize_exact(
             self.image_size,
             self.image_size,
@@ -63,6 +57,7 @@ impl SigLipVisionModel {
             .enumerate()
             .for_each(|(c, channel_slice)| {
                 for i in 0..channel_step {
+                    // SigLIP standard: (x / 127.5) - 1.0
                     channel_slice[i] = (f32::from(raw_samples[i * 3 + c]) / 127.5) - 1.0;
                 }
             });
@@ -71,6 +66,11 @@ impl SigLipVisionModel {
             (1, 3, self.image_size as usize, self.image_size as usize),
             pixels,
         )?;
+        Ok(array)
+    }
+
+    pub fn embed(&mut self, img: &DynamicImage) -> Result<Vec<f32>, SigLipError> {
+        let array = self.preprocess(img)?;
         let input_tensor = Value::from_array(array)?;
         let outputs = self
             .session
@@ -82,8 +82,8 @@ impl SigLipVisionModel {
 }
 
 pub struct SigLipTextModel {
-    session: Session,
-    tokenizer: Tokenizer,
+    pub session: Session,
+    pub tokenizer: Tokenizer,
 }
 
 impl SigLipTextModel {
@@ -103,7 +103,7 @@ impl SigLipTextModel {
 
         tokenizer.with_padding(Some(PaddingParams {
             strategy: tokenizers::PaddingStrategy::Fixed(context_length),
-            pad_id: 1,
+            pad_id: 1, // Standard SigLIP pad_id
             ..Default::default()
         }));
 
@@ -117,7 +117,9 @@ impl SigLipTextModel {
         Ok(Self { session, tokenizer })
     }
 
-    pub fn embed(&mut self, text: &str) -> Result<Vec<f32>, SigLipError> {
+    /// Exposes tokenization logic for debugging
+    pub fn tokenize(&self, text: &str) -> Result<Array2<i64>, SigLipError> {
+        let text = text.to_lowercase();
         let encoding = self
             .tokenizer
             .encode(text, true)
@@ -125,8 +127,11 @@ impl SigLipTextModel {
 
         let ids: Vec<i64> = encoding.get_ids().iter().map(|&x| i64::from(x)).collect();
         let seq_len = ids.len();
-        let array = Array2::from_shape_vec((1, seq_len), ids)?;
+        Ok(Array2::from_shape_vec((1, seq_len), ids)?)
+    }
 
+    pub fn embed(&mut self, text: &str) -> Result<Vec<f32>, SigLipError> {
+        let array = self.tokenize(&text)?;
         let input_tensor = Value::from_array(array)?;
         let outputs = self
             .session
