@@ -1,7 +1,7 @@
 # /// script
 # requires-python = "==3.12.*"
 # dependencies = [
-#    "huggingface-hub==0.36.0",
+#    "huggingface_hub[hf_xet]==0.36.0",
 #    "onnxruntime-gpu==1.23.2",
 #    "onnxscript==0.5.7",
 #    "open-clip-torch==3.2.0",
@@ -153,5 +153,7 @@ if __name__ == "__main__":
     siglip2_hf_id = "timm/ViT-SO400M-16-SigLIP2-384"
     openai_hf_id = "timm/vit_base_patch32_clip_224.openai"
     siglip1_hf_id = "timm/ViT-SO400M-14-SigLIP-384"
+    big_g_hf_id = "timm/PE-Core-bigG-14-448"
+    laion_hf_id = "laion/CLIP-ViT-B-32-laion2B-s34B-b79K"
 
-    export_model(siglip1_hf_id, "assets/" + siglip1_hf_id)
+    export_model(laion_hf_id, "assets/" + laion_hf_id)

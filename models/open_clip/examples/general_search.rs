@@ -21,7 +21,7 @@ fn main() -> Result<()> {
     color_eyre::install()?;
 
     // Switch this path depending on which model you are testing
-    let model_dir = PathBuf::from(format!("{ASSETS_FOLDER}/timm/ViT-SO400M-14-SigLIP-384"));
+    let model_dir = PathBuf::from(format!("{ASSETS_FOLDER}/laion/CLIP-ViT-B-32-laion2B-s34B-b79K"));
     let img_dir = PathBuf::from(format!("{ASSETS_FOLDER}/img"));
 
     println!("🚀 Loading Towers...");
