@@ -30,11 +30,8 @@ impl TextTower {
             .map_err(|e| ClipError::Tokenizer(e.to_string()))?;
 
         // Extract pad token from tokenizer itself
-        let pad_id = tokenizer
-            .get_vocab(true)
-            .get("<pad>")
-            .copied()
-            .or(explicit_pad_id)
+        let pad_id = explicit_pad_id
+            .or(tokenizer.get_vocab(true).get("<pad>").copied())
             .ok_or_else(|| ClipError::Config("No pad token found in tokenizer".into()))?;
 
         let ctx_len = config.model_cfg.text_cfg.context_length;
@@ -62,7 +59,7 @@ impl TextTower {
             tokenizer,
             id_name,
             mask_name,
-            tokenizer_needs_lowercase
+            tokenizer_needs_lowercase,
         })
     }
 
@@ -103,15 +100,23 @@ impl TextTower {
         let ort_ids = Value::from_array(ids_tensor)?;
         let outputs = if let Some(m_name) = &self.mask_name {
             let ort_mask = Value::from_array(mask_tensor)?;
-            self.session.session.run(ort::inputs![&self.id_name => ort_ids, m_name => ort_mask])?
+            self.session
+                .session
+                .run(ort::inputs![&self.id_name => ort_ids, m_name => ort_mask])?
         } else {
-            self.session.session.run(ort::inputs![&self.id_name => ort_ids])?
+            self.session
+                .session
+                .run(ort::inputs![&self.id_name => ort_ids])?
         };
 
         // ... (Keep existing output extraction logic)
         let (shape, data) = outputs[0].try_extract_tensor::<f32>()?;
         let shape_usize: Vec<usize> = shape.iter().map(|&x| x as usize).collect();
-        let view = ndarray::ArrayView::from_shape(ndarray::IxDyn(&shape_usize), data).map_err(|e| ClipError::Inference(e.to_string()))?;
-        Ok(view.into_dimensionality::<ndarray::Ix2>().map_err(|e| ClipError::Inference(e.to_string()))?.to_owned())
+        let view = ndarray::ArrayView::from_shape(ndarray::IxDyn(&shape_usize), data)
+            .map_err(|e| ClipError::Inference(e.to_string()))?;
+        Ok(view
+            .into_dimensionality::<ndarray::Ix2>()
+            .map_err(|e| ClipError::Inference(e.to_string()))?
+            .to_owned())
     }
 }

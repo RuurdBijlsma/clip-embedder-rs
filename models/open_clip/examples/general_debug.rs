@@ -40,7 +40,7 @@ fn main() -> Result<()> {
     color_eyre::install()?;
 
     let assets = Path::new("models/open_clip/assets");
-    let model_dir = assets.join("timm/MobileCLIP2-S4-OpenCLIP");
+    let model_dir = assets.join("timm/ViT-SO400M-14-SigLIP-384");
     let img_path = assets.join("img/beach_rocks.jpg");
 
     let mut vision_tower = VisionTower::new(

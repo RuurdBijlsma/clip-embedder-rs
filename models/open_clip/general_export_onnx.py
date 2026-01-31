@@ -71,13 +71,14 @@ def export_model(repo_id, output_dir):
 
     # Detection logic: SigLIP uses Sigmoid and usually has an initial logit bias
     is_siglip = "siglip" in repo_id.lower() or "init_logit_bias" in model_cfg
+    default_pad_id = 1 if (is_siglip and "siglip2" not in repo_id.lower()) else 0
 
     config = {
         "logit_scale": logit_scale,
         "logit_bias": logit_bias,
         "activation_function": 'sigmoid' if is_siglip else 'softmax',
         "tokenizer_needs_lowercase": True if is_siglip else False,
-        "pad_id": 0,
+        "pad_id": default_pad_id,
     }
 
     with open(os.path.join(output_dir, "model_config.json"), "w") as f:
@@ -150,5 +151,7 @@ def export_model(repo_id, output_dir):
 if __name__ == "__main__":
     mobileclip_hf_id = "timm/MobileCLIP2-S4-OpenCLIP"
     siglip2_hf_id = "timm/ViT-SO400M-16-SigLIP2-384"
+    openai_hf_id = "timm/vit_base_patch32_clip_224.openai"
+    siglip1_hf_id = "timm/ViT-SO400M-14-SigLIP-384"
 
-    export_model(mobileclip_hf_id, "assets/" + mobileclip_hf_id)
+    export_model(siglip1_hf_id, "assets/" + siglip1_hf_id)
