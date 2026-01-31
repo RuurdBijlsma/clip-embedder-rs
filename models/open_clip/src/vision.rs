@@ -1,145 +1,101 @@
-use crate::config::ModelConfig;
-use color_eyre::eyre::{Context, Result};
-use image::imageops::FilterType;
-use image::{DynamicImage, GenericImageView};
-use ndarray::Array4;
+use crate::config::OpenClipConfig;
+use crate::error::{ClipError, Result};
+use crate::onnx::OnnxSession;
+use image::{DynamicImage, GenericImageView, imageops::FilterType};
+use ndarray::{Array2, Array4, ArrayView, Axis, IxDyn};
+use ort::value::Value;
 use rayon::prelude::*;
+use std::path::Path;
 
-#[derive(Debug, Clone, Copy)]
-enum ResizeStrategy {
-    /// Forces the image to (size, size), ignoring aspect ratio.
-    /// Common in SigLIP models.
-    Squash,
-    /// Resizes the shortest edge to 'size' while maintaining aspect ratio,
-    /// then center crops.
-    /// Common in original OpenAI CLIP.
-    ShortestEdge,
+pub struct VisionTower {
+    pub session: OnnxSession,
+    pub config: OpenClipConfig,
+    pub input_name: String,
 }
 
-#[derive(Debug, Clone)]
-pub struct VisionProcessor {
-    image_size: u32,
-    mean: [f32; 3],
-    std: [f32; 3],
-    interpolation: FilterType,
-    resize_strategy: ResizeStrategy,
-}
+impl VisionTower {
+    pub fn new(model_path: impl AsRef<Path>, config_path: impl AsRef<Path>) -> Result<Self> {
+        let session = OnnxSession::new(model_path)?;
+        let config = OpenClipConfig::from_file(config_path)?;
 
-impl VisionProcessor {
-    pub fn new(config: &ModelConfig) -> Self {
-        // Map "squash" / "shortest" directly from flat config
-        let resize_strategy = match config.resize_mode.as_str() {
-            "squash" => ResizeStrategy::Squash,
-            "shortest" => ResizeStrategy::ShortestEdge,
-            _ => ResizeStrategy::ShortestEdge,
-        };
+        let input_name = session
+            .find_input(&["pixel_values", "input"])
+            .ok_or_else(|| ClipError::Config("Could not find vision input node".to_string()))?;
 
-        // 2. Determine Interpolation
-        // Map string to image::FilterType
-        let interpolation = match config.interpolation.as_str() {
-            "bicubic" => FilterType::CatmullRom, // Best approx for bicubic in `image` crate
-            "bilinear" => FilterType::Triangle,
-            "nearest" => FilterType::Nearest,
-            _ => FilterType::CatmullRom, // Default high quality
-        };
-
-        Self {
-            image_size: config.image_size,
-            mean: config.mean,
-            std: config.std,
-            interpolation,
-            resize_strategy,
-        }
+        Ok(Self {
+            session,
+            config,
+            input_name,
+        })
     }
 
-    /// Preprocesses an image into a (1, 3, H, W) normalized tensor.
-    pub fn process(&self, image: &DynamicImage) -> Result<Array4<f32>> {
-        // 1. Resize & Crop
-        let processed_img = match self.resize_strategy {
-            ResizeStrategy::Squash => image.resize_exact(
-                self.image_size,
-                self.image_size,
-                self.interpolation,
-            ),
-            ResizeStrategy::ShortestEdge => {
-                // Resize preserving aspect ratio such that the smallest dimension becomes image_size
+    pub fn embed_images(&mut self, images: &[DynamicImage]) -> Result<Array2<f32>> {
+        if images.is_empty() {
+            return Err(ClipError::Inference("Empty batch".to_string()));
+        }
+
+        // Parallel preprocessing
+        let processed: Vec<Array4<f32>> = images
+            .par_iter()
+            .map(|img| self.preprocess(img))
+            .collect::<Result<Vec<_>>>()?;
+
+        let views: Vec<_> = processed.iter().map(|a| a.view()).collect();
+        let batch_tensor = ndarray::concatenate(Axis(0), &views)
+            .map_err(|e| ClipError::Inference(e.to_string()))?;
+
+        let input_tensor = Value::from_array(batch_tensor)?;
+        let outputs = self
+            .session
+            .session
+            .run(ort::inputs![&self.input_name => input_tensor])?;
+
+        let (shape, data) = outputs[0].try_extract_tensor::<f32>()?;
+        let shape_usize: Vec<usize> = shape.iter().map(|&x| x as usize).collect();
+        let view = ArrayView::from_shape(IxDyn(&shape_usize), data)
+            .map_err(|e| ClipError::Inference(e.to_string()))?;
+
+        Ok(view
+            .into_dimensionality::<ndarray::Ix2>()
+            .map_err(|e| ClipError::Inference(e.to_string()))?
+            .to_owned())
+    }
+
+    pub fn preprocess(&self, image: &DynamicImage) -> Result<Array4<f32>> {
+        let size = self.config.model_cfg.vision_cfg.image_size;
+        let interp = match self.config.preprocess_cfg.interpolation.as_str() {
+            "bicubic" => FilterType::CatmullRom,
+            "bilinear" => FilterType::Triangle,
+            _ => FilterType::Nearest,
+        };
+
+        let resized = match self.config.preprocess_cfg.resize_mode.as_str() {
+            "squash" => image.resize_exact(size, size, interp),
+            _ => {
                 let (w, h) = image.dimensions();
-                let (nw, nh) = if w < h {
-                    (self.image_size, (h as f32 * (self.image_size as f32 / w as f32)) as u32)
-                } else {
-                    ((w as f32 * (self.image_size as f32 / h as f32)) as u32, self.image_size)
-                };
-
-                let resized = image.resize_exact(nw, nh, self.interpolation);
-
-                // Center Crop
-                let left = (nw - self.image_size) / 2;
-                let top = (nh - self.image_size) / 2;
-
-                resized.crop_imm(left, top, self.image_size, self.image_size)
+                let scale = size as f32 / w.min(h) as f32;
+                let (nw, nh) = ((w as f32 * scale) as u32, (h as f32 * scale) as u32);
+                let r = image.resize_exact(nw, nh, interp);
+                r.crop_imm((nw - size) / 2, (nh - size) / 2, size, size)
             }
         };
 
-        // 2. Convert to RGB8 (strips alpha if present)
-        let rgb = processed_img.to_rgb8();
+        let rgb = resized.to_rgb8();
+        let (mean, std) = (
+            self.config.preprocess_cfg.mean,
+            self.config.preprocess_cfg.std,
+        );
+        let mut flat = vec![0.0f32; 3 * (size as usize).pow(2)];
 
-        // 3. Normalize & Tensorize (Parallelized)
-        // ONNX expects NCHW: (Batch, Channel, Height, Width)
-        let height = self.image_size as usize;
-        let width = self.image_size as usize;
-        let channel_step = height * width;
-
-        // Flattened vector: RRR...GGG...BBB...
-        let mut flat_pixels = vec![0.0f32; 3 * channel_step];
-        let raw_samples = rgb.as_flat_samples();
-        let raw_slice = raw_samples.samples; // [R, G, B, R, G, B, ...]
-
-        // We process each channel (R, G, B) in parallel chunks
-        flat_pixels
-            .par_chunks_exact_mut(channel_step)
-            .enumerate()
-            .for_each(|(c, channel_out)| {
-                // c=0 is R, c=1 is G, c=2 is B
-                let mean = self.mean[c];
-                let std = self.std[c];
-
-                for i in 0..channel_step {
-                    // map output index `i` back to interleaved input index
-                    let input_idx = i * 3 + c;
-                    let val = f32::from(raw_slice[input_idx]) / 255.0;
-                    channel_out[i] = (val - mean) / std;
-                }
-            });
-
-        // Create Array4 (1, 3, H, W)
-        let tensor = Array4::from_shape_vec(
-            (1, 3, height, width),
-            flat_pixels,
-        ).wrap_err("Failed to create generic vision tensor")?;
-
-        Ok(tensor)
-    }
-
-    /// Process a batch of images.
-    /// Returns (Batch, 3, H, W)
-    pub fn process_batch(&self, images: &[DynamicImage]) -> Result<Array4<f32>> {
-        if images.is_empty() {
-            return Ok(Array4::zeros((0, 3, self.image_size as usize, self.image_size as usize)));
+        let channel_len = (size as usize).pow(2);
+        for c in 0..3 {
+            for i in 0..channel_len {
+                let val = f32::from(rgb.as_raw()[i * 3 + c]) / 255.0;
+                flat[c * channel_len + i] = (val - mean[c]) / std[c];
+            }
         }
 
-        // Process all images in parallel
-        let tensors: Result<Vec<Array4<f32>>> = images
-            .par_iter()
-            .map(|img| self.process(img))
-            .collect();
-
-        let tensors = tensors?;
-
-        // Use concatenate instead of stack
-        let views: Vec<_> = tensors.iter().map(|a| a.view()).collect();
-        let batch = ndarray::concatenate(ndarray::Axis(0), &views)
-            .wrap_err("Failed to concatenate image batch")?;
-
-        Ok(batch)
+        Array4::from_shape_vec((1, 3, size as usize, size as usize), flat)
+            .map_err(|e| ClipError::Inference(e.to_string()))
     }
 }

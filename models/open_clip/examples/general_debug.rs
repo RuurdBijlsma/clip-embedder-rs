@@ -1,13 +1,10 @@
-#![allow(
-    clippy::cast_possible_truncation,
-    clippy::cast_sign_loss,
-    clippy::cast_precision_loss
-)]
+#![allow(clippy::cast_possible_truncation, clippy::cast_precision_loss)]
 
 use color_eyre::eyre::Result;
 use image::{ImageBuffer, Rgb};
-use ndarray::{Array4, ArrayView1};
-use open_clip::ClipEmbedder;
+use ndarray::{Array4, ArrayView1, s};
+use open_clip::config::LocalConfig;
+use open_clip::{TextTower, VisionTower};
 use std::path::Path;
 
 fn get_stats(data: &ArrayView1<f32>) -> (f32, f32) {
@@ -16,19 +13,18 @@ fn get_stats(data: &ArrayView1<f32>) -> (f32, f32) {
     (mean, var.sqrt())
 }
 
-/// Uses the library's config to reverse normalization for visual inspection.
-fn save_debug_image(pix: &Array4<f32>, config: &open_clip::config::ModelConfig, filename: &str) -> Result<()> {
+fn save_debug_image(
+    pix: &Array4<f32>,
+    config: &open_clip::config::OpenClipConfig,
+    filename: &str,
+) -> Result<()> {
     let height = pix.shape()[2];
     let width = pix.shape()[3];
     let mut img_buf = ImageBuffer::new(width as u32, height as u32);
-
-    let mean = config.mean;
-    let std = config.std;
+    let (mean, std) = (config.preprocess_cfg.mean, config.preprocess_cfg.std);
 
     for y in 0..height {
         for x in 0..width {
-            // Denormalize: (pixel * std + mean) * 255
-            // Using [0, channel, y, x]
             let r = (pix[[0, 0, y, x]].mul_add(std[0], mean[0]) * 255.0).clamp(0.0, 255.0) as u8;
             let g = (pix[[0, 1, y, x]].mul_add(std[1], mean[1]) * 255.0).clamp(0.0, 255.0) as u8;
             let b = (pix[[0, 2, y, x]].mul_add(std[2], mean[2]) * 255.0).clamp(0.0, 255.0) as u8;
@@ -47,65 +43,93 @@ fn main() -> Result<()> {
     let model_dir = assets.join("model");
     let img_path = assets.join("img/beach_rocks.jpg");
 
-    println!("🚀 Loading Unified CLIP Engine for Debug...");
-    let mut embedder = ClipEmbedder::new(&model_dir)?;
+    let mut vision_tower = VisionTower::new(
+        model_dir.join("visual.onnx"),
+        model_dir.join("open_clip_config.json"),
+    )?;
+
+    let local_config = LocalConfig::from_file(model_dir.join("model_config.json"))
+        .expect("Failed to get local config file");
+
+    // Pass the new model_config.json path here
+    let mut text_tower = TextTower::new(
+        model_dir.join("text.onnx"),
+        model_dir.join("open_clip_config.json"),
+        model_dir.join("tokenizer.json"),
+        local_config.tokenizer_needs_lowercase,
+    )?;
 
     let query_text = "A photo of Rocks";
     let img = image::open(&img_path)?;
 
-    println!("\n--- DEBUG: GENERAL CLIP ---");
-    println!("Model Type:     {:?}", embedder.config.model_type);
-    println!("Image Mode:     {}", embedder.config.resize_mode);
-
-    // --- 1. Text Preprocessing (Directly using TextProcessor) ---
-    // This uses the exact .to_lowercase() fix we just added.
-    let (text_ids, text_mask) = embedder.text.process(query_text)?;
-
-    println!("\n[TEXT PREPROCESSING]");
-    println!("Input IDs (first 10): {:?}", text_ids.slice(ndarray::s![0, ..10]).to_vec());
-    println!("Attention Mask:       {:?}", text_mask.slice(ndarray::s![0, ..10]).to_vec());
-
-    // --- 2. Image Preprocessing (Directly using VisionProcessor) ---
-    // This tests your Squash vs ShortestEdge logic.
-    let pixel_tensor = embedder.vision.process(&img)?;
-    save_debug_image(&pixel_tensor, &embedder.config, "debug_onnx_input.png")?;
-
-    let (pix_mean, pix_std) = get_stats(
-        &pixel_tensor
-            .view()
-            .into_shape_with_order(pixel_tensor.len())?,
+    println!("\n--- DEBUG: OPEN_CLIP DECOUPLED ---");
+    println!(
+        "Likely Type:    {}",
+        if vision_tower.config.preprocess_cfg.resize_mode == "squash" {
+            "SigLIP"
+        } else {
+            "CLIP"
+        }
     );
+    println!(
+        "Image Mode:     {}",
+        vision_tower.config.preprocess_cfg.resize_mode
+    );
+    println!("Lowercase Req:  {}", text_tower.tokenizer_needs_lowercase);
+
+    // 1. Text Preprocessing
+    let (ids, mask) = text_tower.tokenize(&[query_text.to_string()])?;
+    println!("\n[TEXT PREPROCESSING]");
+    println!(
+        "Input IDs (first 10): {:?}",
+        ids.slice(ndarray::s![0, ..10]).to_vec()
+    );
+    println!(
+        "Attention Mask:       {:?}",
+        mask.slice(ndarray::s![0, ..10]).to_vec()
+    );
+
+    // --- 2. Image Preprocessing ---
+    let pixel_tensor = vision_tower.preprocess(&img)?;
+    save_debug_image(&pixel_tensor, &vision_tower.config, "debug_onnx_input.png")?;
+
+    let flat_pixels = pixel_tensor
+        .view()
+        .into_shape_with_order(pixel_tensor.len())?;
+    let (pix_mean, pix_std) = get_stats(&flat_pixels);
     println!("\n[IMAGE PREPROCESSING]");
     println!("Pixel Stats - Mean: {pix_mean:.6}, Std: {pix_std:.6}");
-    println!("Pixel Slice (ch0, row0): {:?}", pixel_tensor.slice(ndarray::s![0, 0, 0, ..10]).to_vec());
+    // Slice first 10 pixels of the first row of the Red channel
+    println!(
+        "Pixel Slice (ch0, row0): {:?}",
+        pixel_tensor.slice(s![0, 0, 0, ..10]).to_vec()
+    );
 
-    // --- 3. Inference (Directly using OnnxRunners) ---
-    let text_embeds = embedder.text_ort.run_text(text_ids, text_mask)?;
-    let image_embeds = embedder.vision_ort.run_vision(pixel_tensor)?;
+    // --- 3. Inference ---
+    let image_embeds = vision_tower.embed_images(&[img])?;
+    let text_embeds = text_tower.embed_texts(&[query_text.to_string()])?;
 
-    // Text Embed Stats
     let t_row = text_embeds.row(0);
     let (t_mean, t_std) = get_stats(&t_row);
     println!("\n[INFERENCE RESULTS]");
     println!("Text Embeds  - Mean: {t_mean:.6}, Std: {t_std:.6}");
-    println!("Text Embeds  (first 5): {:?}", t_row.slice(ndarray::s![..5]).to_vec());
+    println!(
+        "Text Embeds  (first 5): {:?}",
+        t_row.slice(s![..5]).to_vec()
+    );
 
-    // Image Embed Stats
     let i_row = image_embeds.row(0);
     let (i_mean, i_std) = get_stats(&i_row);
     println!("Image Embeds - Mean: {i_mean:.6}, Std: {i_std:.6}");
-    println!("Image Embeds (first 5): {:?}", i_row.slice(ndarray::s![..5]).to_vec());
+    println!(
+        "Image Embeds (first 5): {:?}",
+        i_row.slice(s![..5]).to_vec()
+    );
 
-    // --- 4. Math Verification ---
-    // Verify scale and bias are being applied as expected
-    let logits = embedder.compute_logits(&image_embeds, &text_embeds);
-    let probs = embedder.compute_probs(&image_embeds, &text_embeds);
-
+    // --- 4. Scoring ---
+    let similarity = i_row.dot(&t_row);
     println!("\n[SCORING CHECK]");
-    println!("Logit Scale:      {:.4}", embedder.config.logit_scale);
-    println!("Logit Bias:       {:.4}", embedder.config.logit_bias);
-    println!("Raw Logit:        {:.4}", logits[[0, 0]]);
-    println!("Final Match Prob: {:.2}%", probs[[0, 0]] * 100.0);
+    println!("Raw Dot Product (Similarity): {:.4}", similarity);
 
     Ok(())
 }

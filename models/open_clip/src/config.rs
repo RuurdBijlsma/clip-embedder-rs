@@ -1,84 +1,64 @@
 use serde::Deserialize;
+use std::fs;
 use std::path::Path;
-use std::{fs, io};
+use crate::error::Result;
 
-#[derive(Debug, Clone, Copy, Deserialize, PartialEq)]
-#[serde(rename_all = "lowercase")]
-pub enum ModelType {
-    Siglip,
-    Clip,
+#[derive(Debug, Clone, Deserialize, Default)]
+pub struct LocalConfig {
+    #[serde(default)]
+    pub tokenizer_needs_lowercase: bool,
+    pub logit_scale: Option<f32>,
+    pub logit_bias: Option<f32>,
+}
+
+impl LocalConfig {
+    pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
+        if !path.as_ref().exists() {
+            return Ok(Self::default());
+        }
+        let content = fs::read_to_string(path)?;
+        Ok(serde_json::from_str(&content)?)
+    }
 }
 
 #[derive(Debug, Clone, Deserialize)]
-pub struct ModelConfig {
-    // Identity
-    pub model_type: ModelType,
+pub struct OpenClipConfig {
+    pub model_cfg: ModelCfg,
+    pub preprocess_cfg: PreprocessCfg,
+}
 
-    // Dimensions
+#[derive(Debug, Clone, Deserialize)]
+pub struct ModelCfg {
     pub embed_dim: usize,
+    pub vision_cfg: VisionCfg,
+    pub text_cfg: TextCfg,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct VisionCfg {
     pub image_size: u32,
+    pub layers: Option<usize>,
+    pub width: Option<usize>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct TextCfg {
     pub context_length: usize,
     pub vocab_size: usize,
+    pub hf_tokenizer_name: Option<String>,
+}
 
-    // Math Parameters
-    // We expect these to be the *final* multipliers (e.g. already exp() if needed)
-    pub logit_scale: f32,
-    #[serde(default)]
-    pub logit_bias: f32, // Defaults to 0.0 if missing (good for CLIP)
-
-    // Preprocessing
+#[derive(Debug, Clone, Deserialize)]
+pub struct PreprocessCfg {
     pub mean: [f32; 3],
     pub std: [f32; 3],
     pub interpolation: String,
     pub resize_mode: String,
 }
 
-impl ModelConfig {
-    pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self, io::Error> {
+impl OpenClipConfig {
+    pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
         let content = fs::read_to_string(path)?;
-        let config = serde_json::from_str(&content)?;
-        Ok(config)
-    }
-}
-
-// -----------------------------------------------------------------------------
-// Keep SpecialTokensMap (it works well)
-// -----------------------------------------------------------------------------
-
-#[derive(Debug, Clone, Deserialize)]
-pub struct SpecialTokensMap {
-    pub pad_token: Option<SpecialToken>,
-    pub eos_token: Option<SpecialToken>,
-    pub bos_token: Option<SpecialToken>,
-    pub unk_token: Option<SpecialToken>,
-}
-
-impl SpecialTokensMap {
-    pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self, io::Error> {
-        let content = fs::read_to_string(path)?;
-        let config = serde_json::from_str(&content)?;
-        Ok(config)
-    }
-}
-
-#[derive(Debug, Clone, Deserialize)]
-#[serde(from = "SpecialTokenRaw")]
-pub struct SpecialToken {
-    pub content: String,
-}
-
-#[derive(Deserialize)]
-#[serde(untagged)]
-enum SpecialTokenRaw {
-    Simple(String),
-    Complex { content: String },
-}
-
-impl From<SpecialTokenRaw> for SpecialToken {
-    fn from(raw: SpecialTokenRaw) -> Self {
-        match raw {
-            SpecialTokenRaw::Simple(s) => SpecialToken { content: s },
-            SpecialTokenRaw::Complex { content } => SpecialToken { content },
-        }
+        Ok(serde_json::from_str(&content)?)
     }
 }

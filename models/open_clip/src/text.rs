@@ -1,156 +1,116 @@
-use crate::config::{ModelConfig, ModelType, SpecialTokensMap};
-use color_eyre::eyre::{Context, OptionExt, Result};
+use crate::config::OpenClipConfig;
+use crate::error::{ClipError, Result};
+use crate::onnx::OnnxSession;
 use ndarray::Array2;
+use ort::value::Value;
 use std::path::Path;
 use tokenizers::{PaddingParams, PaddingStrategy, Tokenizer, TruncationParams};
 
-#[derive(Debug)]
-pub struct TextProcessor {
+pub struct TextTower {
+    pub session: OnnxSession,
+    pub config: OpenClipConfig,
+    pub tokenizer_needs_lowercase: bool,
     tokenizer: Tokenizer,
-    lowercase: bool,
+    id_name: String,
+    mask_name: Option<String>,
 }
 
-impl TextProcessor {
-    /// Initializes the tokenizer with padding and truncation rules derived from the config.
-    ///
-    /// Arguments:
-    /// - `tokenizer_path`: Path to `tokenizer.json`
-    /// - `tokens_map_path`: Path to `special_tokens_map.json`
-    /// - `config`: The parsed `open_clip_config.json`
+impl TextTower {
     pub fn new(
+        model_path: impl AsRef<Path>,
+        config_path: impl AsRef<Path>,
         tokenizer_path: impl AsRef<Path>,
-        tokens_map_path: impl AsRef<Path>,
-        config: &ModelConfig,
+        tokenizer_needs_lowercase: bool,
     ) -> Result<Self> {
-        // 1. Load the base Tokenizer
-        let mut tokenizer = Tokenizer::from_file(&tokenizer_path).expect(&format!(
-            "Failed to load tokenizer from {:?}",
-            tokenizer_path.as_ref()
-        ));
+        let session = OnnxSession::new(model_path)?;
+        let config = OpenClipConfig::from_file(config_path)?;
 
-        // 2. Load Special Tokens Map to find the Pad Token string
-        let map = SpecialTokensMap::from_file(&tokens_map_path)
-            .wrap_err("Failed to parse special_tokens_map.json")?;
+        let mut tokenizer = Tokenizer::from_file(tokenizer_path)
+            .map_err(|e| ClipError::Tokenizer(e.to_string()))?;
 
-        // 3. Determine Pad Token ID
-        // We look for the string in the map (e.g., "<pad>" or "<|endoftext|>")
-        // then ask the tokenizer for the corresponding ID.
-        let pad_token_str = map
-            .pad_token
-            .map(|t| t.content)
-            .ok_or_eyre("No 'pad_token' found in special_tokens_map.json")?;
+        // Extract pad token from tokenizer itself (most reliable)
+        let pad_id = tokenizer
+            .get_vocab(true)
+            .get("<pad>")
+            .copied()
+            .or_else(|| tokenizer.get_vocab(true).get("<|endoftext|>").copied())
+            .ok_or_else(|| ClipError::Config("No pad token found in tokenizer".into()))?;
 
-        let pad_id = tokenizer.token_to_id(&pad_token_str).ok_or_eyre(format!(
-            "Tokenizer does not contain the pad token ID for string: '{}'",
-            pad_token_str
-        ))?;
-
-        // 4. Configure Padding & Truncation
-        // We pad to the exact context length (e.g. 64 for SigLIP, 77 for CLIP)
-        let context_len = config.context_length;
+        let ctx_len = config.model_cfg.text_cfg.context_length;
 
         tokenizer
             .with_padding(Some(PaddingParams {
-                strategy: PaddingStrategy::Fixed(context_len),
+                strategy: PaddingStrategy::Fixed(ctx_len),
                 pad_id,
-                pad_token: pad_token_str,
                 ..Default::default()
             }))
             .with_truncation(Some(TruncationParams {
-                max_length: context_len,
+                max_length: ctx_len,
                 ..Default::default()
             }))
-            .map_err(|e| color_eyre::eyre::eyre!("Failed to set tokenizer params: {e}"))?;
+            .map_err(|e| ClipError::Tokenizer(e.to_string()))?;
 
-        let lowercase = match config.model_type {
-            ModelType::Siglip => true,
-            ModelType::Clip => false,
-        };
+        let id_name = session
+            .find_input(&["input_ids"])
+            .ok_or_else(|| ClipError::Config("Could not find text input node".into()))?;
+        let mask_name = session.find_input(&["attention_mask"]);
 
         Ok(Self {
+            session,
+            config,
             tokenizer,
-            lowercase,
+            id_name,
+            mask_name,
+            tokenizer_needs_lowercase
         })
     }
 
-    /// Tokenizes a single string.
-    /// Returns (input_ids, attention_mask).
-    /// Shape: (1, SequenceLength)
-    pub fn process(&self, text: &str) -> Result<(Array2<i64>, Array2<i64>)> {
-        // Note: The tokenizer.json usually handles normalization (lowercasing etc) internally
-        // via its Normalizer pipeline, so we don't need to manually lowercase here
-        // unless the specific model config demands it outside the tokenizer pipeline.
-        // For standard OpenCLIP/HF exports, the generic encode is sufficient.
-        let cased_text = if self.lowercase {
-            text.to_lowercase()
-        } else {
-            text.to_owned()
-        };
-        let encoding = self
-            .tokenizer
-            .encode(cased_text, true)
-            .map_err(|e| color_eyre::eyre::eyre!("Tokenization failed: {e}"))?;
-
-        let ids: Vec<i64> = encoding.get_ids().iter().map(|&x| i64::from(x)).collect();
-        let mask: Vec<i64> = encoding
-            .get_attention_mask()
-            .iter()
-            .map(|&x| i64::from(x))
-            .collect();
-
-        let len = ids.len();
-
-        let ids_array =
-            Array2::from_shape_vec((1, len), ids).wrap_err("Failed to create input_ids tensor")?;
-
-        let mask_array = Array2::from_shape_vec((1, len), mask)
-            .wrap_err("Failed to create attention_mask tensor")?;
-
-        Ok((ids_array, mask_array))
-    }
-
-    /// Tokenizes a batch of strings.
-    /// Returns (input_ids, attention_mask).
-    /// Shape: (Batch, SequenceLength)
-    pub fn process_batch(&self, texts: &[String]) -> Result<(Array2<i64>, Array2<i64>)> {
-        if texts.is_empty() {
-            return Ok((Array2::zeros((0, 0)), Array2::zeros((0, 0))));
-        }
-
-        let cased_texts: Vec<String> = if self.lowercase {
-            texts.iter().map(|s|s.to_lowercase()).collect()
+    pub fn tokenize(&self, texts: &[String]) -> Result<(Array2<i64>, Array2<i64>)> {
+        let processed_texts: Vec<String> = if self.tokenizer_needs_lowercase {
+            texts.iter().map(|s| s.to_lowercase()).collect()
         } else {
             texts.to_vec()
         };
-
         let encodings = self
             .tokenizer
-            .encode_batch(cased_texts, true)
-            .map_err(|e| color_eyre::eyre::eyre!("Batch tokenization failed: {e}"))?;
+            .encode_batch(processed_texts, true)
+            .map_err(|e| ClipError::Tokenizer(e.to_string()))?;
 
-        // Calculate dimensions
         let batch_size = encodings.len();
-        let seq_len = encodings.first().map(|e| e.len()).unwrap_or(0);
+        let seq_len = self.config.model_cfg.text_cfg.context_length;
 
-        let mut flat_ids = Vec::with_capacity(batch_size * seq_len);
-        let mut flat_mask = Vec::with_capacity(batch_size * seq_len);
+        let ids: Vec<i64> = encodings
+            .iter()
+            .flat_map(|e| e.get_ids().iter().map(|&x| x as i64))
+            .collect();
+        let mask: Vec<i64> = encodings
+            .iter()
+            .flat_map(|e| e.get_attention_mask().iter().map(|&x| x as i64))
+            .collect();
 
-        for encoding in encodings {
-            flat_ids.extend(encoding.get_ids().iter().map(|&x| i64::from(x)));
-            flat_mask.extend(encoding.get_attention_mask().iter().map(|&x| i64::from(x)));
-        }
-
-        let ids_array = Array2::from_shape_vec((batch_size, seq_len), flat_ids)
-            .wrap_err("Failed to create batch input_ids tensor")?;
-
-        let mask_array = Array2::from_shape_vec((batch_size, seq_len), flat_mask)
-            .wrap_err("Failed to create batch attention_mask tensor")?;
+        let ids_array = Array2::from_shape_vec((batch_size, seq_len), ids)
+            .map_err(|e| ClipError::Inference(e.to_string()))?;
+        let mask_array = Array2::from_shape_vec((batch_size, seq_len), mask)
+            .map_err(|e| ClipError::Inference(e.to_string()))?;
 
         Ok((ids_array, mask_array))
     }
 
-    /// Helper to get the underlying tokenizer if needed (e.g. for decoding)
-    pub fn get_tokenizer(&self) -> &Tokenizer {
-        &self.tokenizer
+    pub fn embed_texts(&mut self, texts: &[String]) -> Result<Array2<f32>> {
+        let (ids_tensor, mask_tensor) = self.tokenize(texts)?;
+
+        let ort_ids = Value::from_array(ids_tensor)?;
+        let outputs = if let Some(m_name) = &self.mask_name {
+            let ort_mask = Value::from_array(mask_tensor)?;
+            self.session.session.run(ort::inputs![&self.id_name => ort_ids, m_name => ort_mask])?
+        } else {
+            self.session.session.run(ort::inputs![&self.id_name => ort_ids])?
+        };
+
+        // ... (Keep existing output extraction logic)
+        let (shape, data) = outputs[0].try_extract_tensor::<f32>()?;
+        let shape_usize: Vec<usize> = shape.iter().map(|&x| x as usize).collect();
+        let view = ndarray::ArrayView::from_shape(ndarray::IxDyn(&shape_usize), data).map_err(|e| ClipError::Inference(e.to_string()))?;
+        Ok(view.into_dimensionality::<ndarray::Ix2>().map_err(|e| ClipError::Inference(e.to_string()))?.to_owned())
     }
 }
