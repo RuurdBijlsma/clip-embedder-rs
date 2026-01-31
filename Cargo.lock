@@ -1171,6 +1171,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "open_clip"
+version = "0.1.0"
+dependencies = [
+ "color-eyre",
+ "image",
+ "ndarray",
+ "num_cpus",
+ "ort",
+ "rayon",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "tokenizers",
+]
+
+[[package]]
 name = "openssl"
 version = "0.10.75"
 source = "registry+https://github.com/rust-lang/crates.io-index"
