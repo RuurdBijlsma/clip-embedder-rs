@@ -15,12 +15,12 @@ fn run_model_integration_test(model_id: &str, expected_dim: usize) -> Result<(),
     let img_path = PathBuf::from("assets/img/beach_rocks.jpg");
     let img = image::open(img_path)?;
     let vision_embs = vision_embedder.embed_image(&img)?;
-    assert_eq!(vision_embs.len(), expected_dim, "Vision embedding dimension mismatch for {}", model_id);
+    assert_eq!(vision_embs.len(), expected_dim, "Vision embedding dimension mismatch for {model_id}");
     
     // Test Text Embedding
     let text = "A photo of rocks";
     let text_embs = text_embedder.embed_text(text)?;
-    assert_eq!(text_embs.len(), expected_dim, "Text embedding dimension mismatch for {}", model_id);
+    assert_eq!(text_embs.len(), expected_dim, "Text embedding dimension mismatch for {model_id}");
     
     // Test Search Logic
     let img_dir = PathBuf::from("assets/img");
@@ -56,7 +56,7 @@ fn run_model_integration_test(model_id: &str, expected_dim: usize) -> Result<(),
     }
     
     // beach_rocks.jpg should be the most similar to "A photo of rocks"
-    assert_eq!(valid_names[max_idx], "beach_rocks.jpg", "Search logic failure for {}", model_id);
+    assert_eq!(valid_names[max_idx], "beach_rocks.jpg", "Search logic failure for {model_id}");
     
     Ok(())
 }

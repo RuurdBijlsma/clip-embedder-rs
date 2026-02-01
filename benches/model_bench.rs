@@ -17,9 +17,9 @@ fn benchmark_models(c: &mut Criterion) {
 
     for model_id in MODELS {
         let mut vision_embedder = VisionEmbedder::from_model_id(model_id)
-            .expect(&format!("Failed to load vision embedder for {model_id}"));
+            .unwrap_or_else(|_| panic!("Failed to load vision embedder for {model_id}"));
         let mut text_embedder = TextEmbedder::from_model_id(model_id)
-            .expect(&format!("Failed to load text embedder for {}", model_id));
+            .unwrap_or_else(|_| panic!("Failed to load text embedder for {model_id}"));
 
         let mut group = c.benchmark_group(*model_id);
 
