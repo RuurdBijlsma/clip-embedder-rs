@@ -16,8 +16,8 @@ fn main() -> Result<()> {
     let start = Instant::now();
 
     let model_id = "timm/ViT-SO400M-16-SigLIP2-384";
-    let mut vision_embedder = VisionEmbedder::new(model_id)?;
-    let mut text_embedder = TextEmbedder::new(model_id)?;
+    let mut vision_embedder = VisionEmbedder::from_model_id(model_id)?;
+    let mut text_embedder = TextEmbedder::from_model_id(model_id)?;
 
     println!(" - Loaded in {:.2?}", start.elapsed());
 

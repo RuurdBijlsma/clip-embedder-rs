@@ -5,6 +5,7 @@ use image::{DynamicImage, GenericImageView, imageops::FilterType};
 use ndarray::{Array2, Array4, ArrayView, Axis, IxDyn};
 use ort::value::Value;
 use rayon::prelude::*;
+use std::path::Path;
 
 pub struct VisionEmbedder {
     pub session: OnnxSession,
@@ -14,9 +15,13 @@ pub struct VisionEmbedder {
 }
 
 impl VisionEmbedder {
-    // todo: use bon and let user set cache folder+model_id, or model folder directly
-    pub fn new(model_id: &str) -> Result<Self, ClipError> {
-        let model_dir = OnnxSession::get_model_dir(model_id)?;
+    pub fn from_model_id(model_id: &str) -> Result<Self, ClipError> {
+        let model_dir = OnnxSession::get_model_dir(model_id);
+        Self::new(&model_dir)
+    }
+
+    pub fn new(model_dir: &Path) -> Result<Self, ClipError> {
+        OnnxSession::verify_model_dir(model_dir)?;
         let model_path = model_dir.join("visual.onnx");
         let config_path = model_dir.join("open_clip_config.json");
         let local_config_path = model_dir.join("model_config.json");

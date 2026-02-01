@@ -17,6 +17,6 @@ pub enum ClipError {
     Config(String),
     #[error("Inference error: {0}")]
     Inference(String),
-    #[error("Model folder not found, generate it with `uv run pull_onnx.py --id {0}` first. '{1}'")]
-    ModelFolderNotFound(String, PathBuf),
+    #[error("Model folder not found, generate it with `uv run pull_onnx.py -h`. '{0}'")]
+    ModelFolderNotFound(PathBuf),
 }

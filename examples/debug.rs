@@ -42,8 +42,8 @@ fn main() -> Result<()> {
     let img_path = Path::new("assets/img/beach_rocks.jpg");
 
     let model_id = "timm/ViT-SO400M-16-SigLIP2-384";
-    let mut vision_embedder = VisionEmbedder::new(model_id)?;
-    let mut text_embedder = TextEmbedder::new(model_id)?;
+    let mut vision_embedder = VisionEmbedder::from_model_id(model_id)?;
+    let mut text_embedder = TextEmbedder::from_model_id(model_id)?;
 
     let query_text = "A photo of Rocks";
     let img = image::open(img_path)?;

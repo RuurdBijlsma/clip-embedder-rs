@@ -10,8 +10,8 @@ include!(concat!(
 fn main() -> Result<()> {
     color_eyre::install()?;
     let model_id = "timm/MobileCLIP2-S2-OpenCLIP";
-    let mut vision_embedder = VisionEmbedder::new(model_id)?;
-    let mut text_embedder = TextEmbedder::new(model_id)?;
+    let mut vision_embedder = VisionEmbedder::from_model_id(model_id)?;
+    let mut text_embedder = TextEmbedder::from_model_id(model_id)?;
 
     let img = image::open(Path::new("assets/img/cat_face.jpg")).expect("Failed to load image");
     let texts = &[

@@ -3,6 +3,7 @@ use crate::error::ClipError;
 use crate::onnx::OnnxSession;
 use ndarray::Array2;
 use ort::value::Value;
+use std::path::Path;
 use tokenizers::{PaddingParams, PaddingStrategy, Tokenizer, TruncationParams};
 
 pub struct TextEmbedder {
@@ -15,9 +16,14 @@ pub struct TextEmbedder {
 }
 
 impl TextEmbedder {
+    pub fn from_model_id(model_id: &str) -> Result<Self, ClipError> {
+        let model_dir = OnnxSession::get_model_dir(model_id);
+        Self::new(&model_dir)
+    }
+
     // todo: use bon and let user set cache folder+model_id, or model folder directly
-    pub fn new(model_id: &str) -> Result<Self, ClipError> {
-        let model_dir = OnnxSession::get_model_dir(model_id)?;
+    pub fn new(model_dir: &Path) -> Result<Self, ClipError> {
+        OnnxSession::verify_model_dir(model_dir)?;
         let model_path = model_dir.join("text.onnx");
         let config_path = model_dir.join("open_clip_config.json");
         let tokenizer_path = model_dir.join("tokenizer.json");
