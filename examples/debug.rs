@@ -39,8 +39,7 @@ fn save_debug_image(
 fn main() -> Result<()> {
     color_eyre::install()?;
 
-    let assets = Path::new("assets");
-    let img_path = assets.join("img/beach_rocks.jpg");
+    let img_path = Path::new("assets/img/beach_rocks.jpg");
 
     let model_id = "timm/ViT-SO400M-16-SigLIP2-384";
     let mut vision_embedder = VisionEmbedder::new(model_id)?;
@@ -55,7 +54,7 @@ fn main() -> Result<()> {
         vision_embedder.config.preprocess_cfg.resize_mode
     );
 
-    // 1. Text Preprocessing
+    // Text Preprocessing
     let (ids, mask) = text_embedder.tokenize(&[query_text.to_string()])?;
     println!("\n[TEXT PREPROCESSING]");
     println!(
@@ -67,7 +66,7 @@ fn main() -> Result<()> {
         mask.slice(s![0, ..10]).to_vec()
     );
 
-    // --- 2. Image Preprocessing ---
+    // --- Image Preprocessing ---
     let pixel_tensor = vision_embedder.preprocess(&img)?;
     save_debug_image(
         &pixel_tensor,
@@ -87,7 +86,7 @@ fn main() -> Result<()> {
         pixel_tensor.slice(s![0, 0, 0, ..30]).to_vec()
     );
 
-    // --- 3. Inference ---
+    // --- Inference ---
     let image_embeds = vision_embedder.embed_images(&[img])?;
     let text_embeds = text_embedder.embed_texts(&[query_text.to_string()])?;
 
@@ -108,7 +107,7 @@ fn main() -> Result<()> {
         i_row.slice(s![..5]).to_vec()
     );
 
-    // --- 4. Scoring ---
+    // --- Scoring ---
     let similarity = i_row.dot(&t_row);
     println!("\n[SCORING CHECK]");
     println!("Raw Dot Product (Similarity): {similarity:.4}");

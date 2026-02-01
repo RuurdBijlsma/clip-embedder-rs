@@ -3,8 +3,6 @@ use open_clip::{TextEmbedder, VisionEmbedder};
 use std::path::PathBuf;
 use std::time::Instant;
 
-const ASSETS_FOLDER: &str = "assets";
-
 fn sigmoid(x: f32) -> f32 {
     1.0 / (1.0 + (-x).exp())
 }
@@ -19,7 +17,7 @@ fn softmax(logits: &[f32]) -> Vec<f32> {
 fn main() -> Result<()> {
     color_eyre::install()?;
 
-    let img_dir = PathBuf::from(format!("{ASSETS_FOLDER}/img"));
+    let img_dir = PathBuf::from("assets/img".to_owned());
     println!(" - Loading Embedders...");
     let start = Instant::now();
 
@@ -52,17 +50,15 @@ fn main() -> Result<()> {
 
     println!(" - Embedding {} images...", images.len());
     let start_inf = Instant::now();
-
     let img_embs = vision_embedder.embed_images(&images)?;
     let text_embs = text_embedder.embed_texts(&[query_text.to_string()])?;
-
     println!(" - Inference completed in {:.2?}", start_inf.elapsed());
 
-    // 1. Calculate Raw Similarities (Cosine Similarity since embeddings are normalized)
+    // Calculate Raw Similarities
     let text_vec = text_embs.row(0);
     let similarities = img_embs.dot(&text_vec);
 
-    // 2. Apply Scale and Bias to get Logits
+    // Post-processing (sigmoid or softmax)
     let scale = text_embedder.model_config.logit_scale.unwrap_or(1.0);
     let bias = text_embedder.model_config.logit_bias.unwrap_or(0.0);
     let logits: Vec<f32> = similarities
@@ -70,7 +66,6 @@ fn main() -> Result<()> {
         .map(|&sim| sim.mul_add(scale, bias))
         .collect();
 
-    // 3. Apply the correct Activation Function
     let activation = text_embedder
         .model_config
         .activation_function
@@ -81,12 +76,10 @@ fn main() -> Result<()> {
     } else {
         softmax(&logits)
     };
-
-    // 4. Process and Sort Results
     let mut results: Vec<_> = valid_names.iter().zip(probs.iter()).collect();
     results.sort_by(|a, b| b.1.partial_cmp(a.1).unwrap());
 
-    // 5. Display Results
+    // Display Results
     println!(" - Search results ({})", activation.to_uppercase());
     println!("Query: \"{query_text}\"");
     println!("Logit Scale: {scale:.4} | Logit Bias: {bias:.4}");

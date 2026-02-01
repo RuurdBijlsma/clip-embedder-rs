@@ -17,5 +17,3 @@ pub enum ClipError {
     #[error("Inference error: {0}")]
     Inference(String),
 }
-
-pub type Result<T> = std::result::Result<T, ClipError>;

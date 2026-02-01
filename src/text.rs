@@ -1,5 +1,5 @@
 use crate::config::{OnnxModelConfig, OpenClipConfig};
-use crate::error::{ClipError, Result};
+use crate::error::{ClipError};
 use crate::onnx::OnnxSession;
 use ndarray::Array2;
 use ort::value::Value;
@@ -15,8 +15,9 @@ pub struct TextEmbedder {
 }
 
 impl TextEmbedder {
-    pub fn new(model_id: &str) -> Result<Self> {
-        let model_dir = crate::utils::get_model_dir(model_id);
+    // todo: use bon and let user set cache folder+model_id, or model folder directly
+    pub fn new(model_id: &str) -> Result<Self, ClipError> {
+        let model_dir = OnnxSession::get_model_dir(model_id);
         let model_path = model_dir.join("text.onnx");
         let config_path = model_dir.join("open_clip_config.json");
         let tokenizer_path = model_dir.join("tokenizer.json");
@@ -25,7 +26,6 @@ impl TextEmbedder {
         let model_config = OnnxModelConfig::from_file(model_config_path)?;
         let session = OnnxSession::new(model_path)?;
         let config = OpenClipConfig::from_file(config_path)?;
-
         let mut tokenizer = Tokenizer::from_file(tokenizer_path)
             .map_err(|e| ClipError::Tokenizer(e.to_string()))?;
 
@@ -33,7 +33,6 @@ impl TextEmbedder {
             .pad_id
             .or_else(|| tokenizer.get_vocab(true).get("<pad>").copied())
             .ok_or_else(|| ClipError::Config("No pad token found in tokenizer".into()))?;
-
         let ctx_len = config.model_cfg.text_cfg.context_length;
 
         tokenizer
@@ -63,7 +62,10 @@ impl TextEmbedder {
         })
     }
 
-    pub fn tokenize<T: AsRef<str>>(&self, texts: &[T]) -> Result<(Array2<i64>, Array2<i64>)> {
+    pub fn tokenize<T: AsRef<str>>(
+        &self,
+        texts: &[T],
+    ) -> Result<(Array2<i64>, Array2<i64>), ClipError> {
         let encodings = if self.model_config.tokenizer_needs_lowercase {
             let lowered = texts.iter().map(|s| s.as_ref().to_lowercase()).collect();
             self.tokenizer.encode_batch(lowered, true)
@@ -93,14 +95,17 @@ impl TextEmbedder {
         Ok((ids_array, mask_array))
     }
 
-    pub fn embed_text(&mut self, text: &str) -> Result<ndarray::Array1<f32>> {
+    pub fn embed_text(&mut self, text: &str) -> Result<ndarray::Array1<f32>, ClipError> {
         let embs = self.embed_texts(&[text])?;
         let len = embs.len();
         embs.into_shape_with_order(len)
             .map_err(|e| ClipError::Inference(e.to_string()))
     }
 
-    pub fn embed_texts<T: AsRef<str>>(&mut self, texts: &[T]) -> Result<Array2<f32>> {
+    pub fn embed_texts<T: AsRef<str>>(
+        &mut self,
+        texts: &[T],
+    ) -> Result<Array2<f32>, ClipError> {
         let (ids_tensor, mask_tensor) = self.tokenize(texts)?;
 
         let ort_ids = Value::from_array(ids_tensor)?;

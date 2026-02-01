@@ -1,13 +1,14 @@
-use crate::error::Result;
+use crate::ClipError;
 use ort::session::{Session, builder::GraphOptimizationLevel};
-use std::path::Path;
+use std::env;
+use std::path::{Path, PathBuf};
 
 pub struct OnnxSession {
     pub session: Session,
 }
 
 impl OnnxSession {
-    pub fn new(path: impl AsRef<Path>) -> Result<Self> {
+    pub fn new(path: impl AsRef<Path>) -> Result<Self, ClipError> {
         let threads = num_cpus::get();
         let session = Session::builder()?
             .with_optimization_level(GraphOptimizationLevel::Level3)?
@@ -32,5 +33,15 @@ impl OnnxSession {
             }
         }
         None
+    }
+
+    /// Get model directory by `model_id`
+    #[must_use]
+    pub fn get_model_dir(model_id: &str) -> PathBuf {
+        let base_folder = env::home_dir().map_or_else(
+            || Path::new(".open_clip_cache").to_owned(),
+            |p| p.join(".cache/open_clip_rs"),
+        );
+        base_folder.join(model_id)
     }
 }

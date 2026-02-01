@@ -1,4 +1,4 @@
-use crate::error::Result;
+use crate::ClipError;
 use serde::Deserialize;
 use std::fs;
 use std::path::Path;
@@ -14,7 +14,7 @@ pub struct OnnxModelConfig {
 }
 
 impl OnnxModelConfig {
-    pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
+    pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self, ClipError> {
         let content = fs::read_to_string(path)?;
         Ok(serde_json::from_str(&content)?)
     }
@@ -64,7 +64,7 @@ fn default_resize_mode() -> String {
 }
 
 impl OpenClipConfig {
-    pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
+    pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self, ClipError> {
         let content = fs::read_to_string(path)?;
         Ok(serde_json::from_str(&content)?)
     }
