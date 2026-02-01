@@ -1,54 +1,151 @@
-# CLIP Embedder in Rust
+# OpenCLIP in Rust
 
-todo for readme:
+Easily run pre-trained [open_clip](https://github.com/mlfoundations/open_clip) compatible models in Rust via ONNX
+Runtime.
 
-* change to only be for open_clip crate
-* say that any CLIP embedding model that supports open_clip should work with this
-* explain workflow: first generate onnx+config files with general_export_onnx.py (filling in the right hf id), then run
-  general_search.rs (filling in hf id)
-* troubleshooting remains same
+## Features
 
-Run siglip2 CLIP model via ONNX in Rust.
-https://huggingface.co/timm/ViT-SO400M-16-SigLIP2-384
+- Run CLIP models in Rust via ONNX.
+- Should support [any model compatible with
+  `open_clip`](https://huggingface.co/models?pipeline_tag=zero-shot-image-classification&library=open_clip&sort=trending) (
+  Python).
+- Python is only needed once to download and export the model weights.
 
-## Prereqs:
+## Prerequisites
 
-* To get the onnx files: `uv` is needed.
-* onnxruntime must be installed.
-* Cargo & Rust
+1. [Rust & Cargo](https://rust-lang.org/).
+2. [uv](https://docs.astral.sh/uv/) - to generate ONNX files from HuggingFace models.
+3. [onnxruntime](https://github.com/microsoft/onnxruntime) - It's linked dynamically as I had issues with static
+   linking.
 
-## Usage
+## Usage: Export Model to ONNX
 
-### Get onnx files:
-
-```shell
-cd models/clip_sl2
-uv run export_onnx.py
-# Wait for it to finish generating the 5 files
-```
-
-### Run the program
+Use the provided `pull_onnx.py` script to download and export an OpenCLIP model from Hugging Face.
 
 ```shell
-cargo run --package clip_sl2 --example search
+# Run the export script - uv will handle the dependencies
+# Example: Export mobileclip 2
+uv run pull_onnx.py --id "timm/MobileCLIP2-S2-OpenCLIP"
 ```
 
-```shell
-cargo run --package clip_sl2 --example debug
+## Usage: Inference in Rust
+
+#### From `examples/basic.rs`
+
+First, add `open_clip` to your `Cargo.toml`.
+
+```rust
+use open_clip::{VisionEmbedder, TextEmbedder};
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let model_id = "timm/MobileCLIP2-S2-OpenCLIP";
+    let mut vision_embedder = VisionEmbedder::from_model_id(model_id)?;
+    let mut text_embedder = TextEmbedder::from_model_id(model_id)?;
+
+    let img = image::open(Path::new("assets/img/cat_face.jpg"))?;
+    let texts = &[
+        "A photo of a cat",
+        "A photo of a dog",
+        "A photo of a beignet",
+    ];
+
+    let img_emb = vision_embedder.embed_image(&img)?;
+    let text_embs = text_embedder.embed_texts(texts)?;
+
+    let similarities = text_embs.dot(&img_emb);
+
+    // compute softmax on output similarities
+    let scale = text_embedder.model_config.logit_scale.unwrap_or(1.0);
+    let bias = text_embedder.model_config.logit_bias.unwrap_or(0.0);
+    let logits: Vec<f32> = similarities
+        .iter()
+        .map(|&s| s.mul_add(scale, bias))
+        .collect();
+
+    for (text, prob) in texts.iter().zip(softmax(&logits)) {
+        println!("{}: {:.2}%", text, prob * 100.0);
+    }
+
+    Ok(())
+}
 ```
 
-```shell
-cargo run --package clip_sl2 --example perf
+### Output (cosine similarity scores)
+
+These values are pre-softmax similarity logits. They are not probabilities and appear less confident.
+
 ```
+A photo of a cat: 0.38
+A photo of a dog: 0.32
+A photo of a beignet: 0.30
+```
+
+After applying softmax to the output, it looks better:
+
+```
+A photo of a cat: 99.99%
+A photo of a dog: 0.01%
+A photo of a beignet: 0.00%
+```
+
+## Examples
+
+Run the included examples (ensure you have exported the relevant model first, usually `timm/ViT-SO400M-16-SigLIP2-384`
+for the examples):
+
+```shell
+# Simple generic example
+cargo run --example basic
+
+# Semantic image search demo
+cargo run --example search
+```
+
+## Tested Models
+
+The following models have been tested to work with `pull_onnx.py` & this Rust crate. I picked these models as they are
+highest performing in benchmarks or most popular on HuggingFace.
+
+* `imageomics/bioclip`
+* `laion/CLIP-ViT-B-32-laion2B-s34B-b79K`
+* `Marqo/marqo-fashionSigLIP`
+* `microsoft/BiomedCLIP-PubMedBERT_256-vit_base_patch16_224`
+* `timm/MobileCLIP2-S4-OpenCLIP`
+* `timm/PE-Core-bigG-14-448`
+* `timm/ViT-SO400M-14-SigLIP-384`
+* `timm/ViT-SO400M-16-SigLIP2-384`
+* `timm/vit_base_patch32_clip_224.openai`
+
+### Verified Embeddings
+
+The following models have been verified to produce embeddings in Rust that match the Python reference implementation:
+
+Python implementations here: https://github.com/RuurdBijlsma/clip-model-research
+
+* `Marqo/marqo-fashionSigLIP`
+* `timm/MobileCLIP2-S4-OpenCLIP`
+* `timm/ViT-SO400M-14-SigLIP-384`
+* `timm/ViT-SO400M-16-SigLIP2-384`
+* `timm/vit_base_patch32_clip_224.openai`
 
 ## Troubleshooting
 
-Onnxruntime is dynamically loaded, so if it's not found correctly, then download the correct onnxruntime:
+### ONNX Runtime Library Not Found
 
-http://github.com/microsoft/onnxruntime/releases
+Onnxruntime is dynamically loaded, so if it's not found correctly, then download the correct onnxruntime library
+from [GitHub Releases](http://github.com/microsoft/onnxruntime/releases).
 
-And put the dll location in your `PATH`, or point the env var to it like this:
+Then put the dll/so/dylib location in your `PATH`, or point the `ORT_DYLIB_PATH` env var to it.
 
+**PowerShell example:**
+
+* Adjust path to where the dll is.
+
+```powershell
+$env:ORT_DYLIB_PATH = "C:/Apps/onnxruntime/lib/onnxruntime.dll"
+```
+
+**Shell example:**
 ```shell
-$env:ORT_DYLIB_PATH="C:/Apps/onnxruntime/lib/onnxruntime.dll"
+export ORT_DYLIB_PATH="/usr/local/lib/libonnxruntime.so"
 ```
