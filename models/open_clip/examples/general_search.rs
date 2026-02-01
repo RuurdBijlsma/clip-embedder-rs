@@ -21,7 +21,7 @@ fn main() -> Result<()> {
     color_eyre::install()?;
 
     // Switch this path depending on which model you are testing
-    let model_dir = PathBuf::from(format!("{ASSETS_FOLDER}/microsoft/BiomedCLIP-PubMedBERT_256-vit_base_patch16_224"));
+    let model_dir = PathBuf::from(format!("{ASSETS_FOLDER}/imageomics/bioclip"));
     let img_dir = PathBuf::from(format!("{ASSETS_FOLDER}/img"));
 
     println!("🚀 Loading Towers...");

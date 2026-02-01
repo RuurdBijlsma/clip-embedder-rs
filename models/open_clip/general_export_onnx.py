@@ -119,7 +119,7 @@ def export_model(repo_id, output_dir):
     }
     with open(os.path.join(output_dir, "model_config.json"), "w") as f:
         json.dump(config, f, indent=2)
-        
+
     # Create onnx models
     dummy_image = torch.randn(BATCH_SIZE, 3, img_size, img_size)
     dummy_text = torch.randint(0, vocab_size, (BATCH_SIZE, ctx_len), dtype=torch.long)
@@ -169,5 +169,7 @@ if __name__ == "__main__":
     big_g_hf_id = "timm/PE-Core-bigG-14-448"
     laion_hf_id = "laion/CLIP-ViT-B-32-laion2B-s34B-b79K"
     biomed_hf_id = "microsoft/BiomedCLIP-PubMedBERT_256-vit_base_patch16_224"
+    fashion_hf_id = "Marqo/marqo-fashionSigLIP"
+    bio_hf_id = "imageomics/bioclip"
 
-    export_model(biomed_hf_id, "assets/" + biomed_hf_id)
+    export_model(bio_hf_id, "assets/" + bio_hf_id)
