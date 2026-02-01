@@ -3,16 +3,10 @@ use open_clip::{TextEmbedder, VisionEmbedder};
 use std::path::PathBuf;
 use std::time::Instant;
 
-fn sigmoid(x: f32) -> f32 {
-    1.0 / (1.0 + (-x).exp())
-}
-
-fn softmax(logits: &[f32]) -> Vec<f32> {
-    let max_logit = logits.iter().fold(f32::NEG_INFINITY, |a, &b| a.max(b));
-    let exps: Vec<f32> = logits.iter().map(|&l| (l - max_logit).exp()).collect();
-    let sum: f32 = exps.iter().sum();
-    exps.iter().map(|&e| e / sum).collect()
-}
+include!(concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/examples/common/examples_common.rs"
+));
 
 fn main() -> Result<()> {
     color_eyre::install()?;

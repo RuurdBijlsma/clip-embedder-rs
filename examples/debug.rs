@@ -46,7 +46,7 @@ fn main() -> Result<()> {
     let mut text_embedder = TextEmbedder::new(model_id)?;
 
     let query_text = "A photo of Rocks";
-    let img = image::open(&img_path)?;
+    let img = image::open(img_path)?;
 
     println!("\n--- DEBUG: OPEN_CLIP DECOUPLED ---");
     println!(

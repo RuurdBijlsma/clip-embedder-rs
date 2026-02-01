@@ -1,3 +1,4 @@
+use std::path::PathBuf;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -16,4 +17,6 @@ pub enum ClipError {
     Config(String),
     #[error("Inference error: {0}")]
     Inference(String),
+    #[error("Model folder not found, generate it with `uv run pull_onnx.py --id {0}` first. '{1}'")]
+    ModelFolderNotFound(String, PathBuf),
 }

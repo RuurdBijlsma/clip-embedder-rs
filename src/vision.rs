@@ -16,7 +16,7 @@ pub struct VisionEmbedder {
 impl VisionEmbedder {
     // todo: use bon and let user set cache folder+model_id, or model folder directly
     pub fn new(model_id: &str) -> Result<Self, ClipError> {
-        let model_dir = OnnxSession::get_model_dir(model_id);
+        let model_dir = OnnxSession::get_model_dir(model_id)?;
         let model_path = model_dir.join("visual.onnx");
         let config_path = model_dir.join("open_clip_config.json");
         let local_config_path = model_dir.join("model_config.json");
@@ -38,10 +38,7 @@ impl VisionEmbedder {
     }
 
     /// Embed a single image
-    pub fn embed_image(
-        &mut self,
-        image: &DynamicImage,
-    ) -> Result<ndarray::Array1<f32>, ClipError> {
+    pub fn embed_image(&mut self, image: &DynamicImage) -> Result<ndarray::Array1<f32>, ClipError> {
         let embs = self.embed_images(std::slice::from_ref(image))?;
         let len = embs.len();
         embs.into_shape_with_order(len)
@@ -59,6 +56,7 @@ impl VisionEmbedder {
             .run(ort::inputs![&self.input_name => input_tensor])?;
 
         let (shape, data) = outputs[0].try_extract_tensor::<f32>()?;
+        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
         let shape_usize: Vec<usize> = shape.iter().map(|&x| x as usize).collect();
         let view = ArrayView::from_shape(IxDyn(&shape_usize), data)
             .map_err(|e| ClipError::Inference(e.to_string()))?;

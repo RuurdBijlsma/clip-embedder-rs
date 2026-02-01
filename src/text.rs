@@ -1,5 +1,5 @@
 use crate::config::{OnnxModelConfig, OpenClipConfig};
-use crate::error::{ClipError};
+use crate::error::ClipError;
 use crate::onnx::OnnxSession;
 use ndarray::Array2;
 use ort::value::Value;
@@ -17,7 +17,7 @@ pub struct TextEmbedder {
 impl TextEmbedder {
     // todo: use bon and let user set cache folder+model_id, or model folder directly
     pub fn new(model_id: &str) -> Result<Self, ClipError> {
-        let model_dir = OnnxSession::get_model_dir(model_id);
+        let model_dir = OnnxSession::get_model_dir(model_id)?;
         let model_path = model_dir.join("text.onnx");
         let config_path = model_dir.join("open_clip_config.json");
         let tokenizer_path = model_dir.join("tokenizer.json");
@@ -102,10 +102,7 @@ impl TextEmbedder {
             .map_err(|e| ClipError::Inference(e.to_string()))
     }
 
-    pub fn embed_texts<T: AsRef<str>>(
-        &mut self,
-        texts: &[T],
-    ) -> Result<Array2<f32>, ClipError> {
+    pub fn embed_texts<T: AsRef<str>>(&mut self, texts: &[T]) -> Result<Array2<f32>, ClipError> {
         let (ids_tensor, mask_tensor) = self.tokenize(texts)?;
 
         let ort_ids = Value::from_array(ids_tensor)?;

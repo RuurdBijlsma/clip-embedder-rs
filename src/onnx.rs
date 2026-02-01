@@ -36,12 +36,18 @@ impl OnnxSession {
     }
 
     /// Get model directory by `model_id`
-    #[must_use]
-    pub fn get_model_dir(model_id: &str) -> PathBuf {
+    pub fn get_model_dir(model_id: &str) -> Result<PathBuf, ClipError> {
         let base_folder = env::home_dir().map_or_else(
             || Path::new(".open_clip_cache").to_owned(),
             |p| p.join(".cache/open_clip_rs"),
         );
-        base_folder.join(model_id)
+        let model_dir = base_folder.join(model_id);
+        if !model_dir.exists() {
+            return Err(ClipError::ModelFolderNotFound(
+                model_id.to_owned(),
+                model_dir,
+            ));
+        }
+        Ok(model_dir)
     }
 }

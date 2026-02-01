@@ -1,3 +1,4 @@
+# ruff: noqa: G004, BLE001, EM101, TRY003, EM102
 # /// script
 # requires-python = "==3.12.*"
 # dependencies = [
@@ -28,7 +29,7 @@ logging.basicConfig(
     level=logging.WARNING,
     format="%(message)s",
     datefmt="[%X]",
-    handlers=[RichHandler(rich_tracebacks=True, show_path=False)],
+    handlers=[RichHandler(rich_tracebacks=False, show_path=False)],
 )
 logger = logging.getLogger("export_script")
 logger.setLevel(logging.INFO)
@@ -47,7 +48,7 @@ class ExportConfig:
 
 
 class VisualWrapper(nn.Module):
-    def __init__(self, model: nn.Module):
+    def __init__(self, model: nn.Module) -> None:
         super().__init__()
         self.model = model
 
@@ -56,7 +57,7 @@ class VisualWrapper(nn.Module):
 
 
 class TextWrapper(nn.Module):
-    def __init__(self, model: nn.Module):
+    def __init__(self, model: nn.Module) -> None:
         super().__init__()
         self.model = model
 
@@ -67,7 +68,7 @@ class TextWrapper(nn.Module):
 class HuggingFaceClient:
     """Handles interaction with Hugging Face Hub."""
 
-    def __init__(self, repo_id: str, output_dir: Path):
+    def __init__(self, repo_id: str, output_dir: Path) -> None:
         self.repo_id = repo_id
         self.output_dir = output_dir
 
@@ -88,12 +89,17 @@ class HuggingFaceClient:
 class ModelManager:
     """Handles model loading, reparameterization, and metadata extraction."""
 
-    def __init__(self, repo_id: str):
+    def __init__(self, repo_id: str) -> None:
         self.repo_id = repo_id
         model_id = f"hf-hub:{repo_id}"
         logger.info(f"Loading model: {model_id}")
 
-        self.model, _, _ = open_clip.create_model_and_transforms(model_id)
+        try:
+            self.model, _, _ = open_clip.create_model_and_transforms(model_id)
+        except Exception as e:
+            raise ValueError(
+                f"Failed to fetch model '{model_id}'. Does it exist?",
+            ) from e
         self.model.eval()
         self._reparameterize()
 
@@ -103,7 +109,7 @@ class ModelManager:
             self.model.eval()
             logger.info("✓ Model reparameterized successfully.")
         except Exception:
-            logger.info("ℹ Model does not require reparameterization.")
+            logger.info("Model does not require reparameterization.")
 
     def get_vocab_size(self) -> int:
         if hasattr(self.model, "vocab_size"):
@@ -112,8 +118,8 @@ class ModelManager:
             return self.model.token_embedding.weight.shape[0]
         try:
             return self.model.transformer.config.vocab_size
-        except AttributeError:
-            raise ValueError("Could not determine vocab_size.")
+        except AttributeError as e:
+            raise ValueError("Could not determine vocab_size.") from e
 
     def get_model_config(
         self,
@@ -134,7 +140,7 @@ class ModelManager:
             "logit_scale": logit_scale,
             "logit_bias": logit_bias,
             "activation_function": "sigmoid" if is_siglip else "softmax",
-            "tokenizer_needs_lowercase": True if is_siglip else False,
+            "tokenizer_needs_lowercase": is_siglip,
             "pad_id": 1 if (is_siglip and not is_siglip2) else 0,
             "vocab_size": self.get_vocab_size(),
         }
@@ -143,7 +149,7 @@ class ModelManager:
 class ONNXExporter:
     """Handles the conversion to ONNX format."""
 
-    def __init__(self, config: ExportConfig):
+    def __init__(self, config: ExportConfig) -> None:
         self.config = config
 
     def export(
@@ -184,7 +190,7 @@ def run_export(repo_id: str, base_output_dir: str) -> None:
     paths = hf_client.download_configs(config.config_files)
     if "open_clip_config.json" not in paths:
         raise FileNotFoundError("Could not find open_clip_config.json for metadata.")
-    with open(paths["open_clip_config.json"]) as f:
+    with Path.open(paths["open_clip_config.json"]) as f:
         open_clip_config = json.load(f)
     model_config = model_mgr.get_model_config(open_clip_config)
     clip_model_cfg = open_clip_config.get("model_cfg", {})
@@ -192,7 +198,7 @@ def run_export(repo_id: str, base_output_dir: str) -> None:
     ctx_len = int(clip_model_cfg.get("text_cfg", {}).get("context_length"))
 
     # Write `model_config.json`
-    with open(output_dir / "model_config.json", "w") as f:
+    with Path.open(output_dir / "model_config.json", "w") as f:
         json.dump(model_config, f, indent=2)
 
     # Export Visual ONNX
@@ -224,7 +230,7 @@ def run_export(repo_id: str, base_output_dir: str) -> None:
     logger.info(f"Done! Saved to: '{output_dir}'")
 
 
-def main():
+def main() -> None:
     default_cache_path = Path.home() / ".cache/open_clip_rs"
     parser = argparse.ArgumentParser(description="Export OpenCLIP models to ONNX.")
     parser.add_argument(
