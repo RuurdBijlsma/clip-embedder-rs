@@ -7,32 +7,31 @@
 #    "rich==14.3.1",
 # ]
 # ///
-import logging
-
-from rich.logging import RichHandler
-
-# Setup Logging
-logging.basicConfig(
-    level=logging.WARNING,
-    format="%(message)s",
-    datefmt="[%X]",
-    handlers=[RichHandler(rich_tracebacks=True, show_path=False)]
-)
-logger = logging.getLogger("export_script")
-logger.setLevel(logging.INFO)
-
 import argparse
 import json
+import logging
 import shutil
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 import open_clip
 import torch
-import torch.nn as nn
 from huggingface_hub import hf_hub_download
+from rich.logging import RichHandler
 from timm.utils import reparameterize_model
+from torch import nn
+
+# Setup Logging
+logging.basicConfig(
+    level=logging.WARNING,
+    format="%(message)s",
+    datefmt="[%X]",
+    handlers=[RichHandler(rich_tracebacks=True, show_path=False)],
+)
+logger = logging.getLogger("export_script")
+logger.setLevel(logging.INFO)
 
 
 @dataclass
@@ -117,15 +116,23 @@ class ModelManager:
             raise ValueError("Could not determine vocab_size.")
 
     def get_model_config(
-            self, raw_config: dict[str, Any]
+        self,
+        raw_config: dict[str, Any],
     ) -> dict[str, str | int | float | bool]:
         model_cfg = raw_config.get("model_cfg", {})
         is_siglip = "siglip" in self.repo_id.lower() or "init_logit_bias" in model_cfg
         is_siglip2 = "siglip2" in self.repo_id.lower()
 
+        logit_scale = self.model.logit_scale.exp().item()
+        logit_bias = (
+            self.model.logit_bias.item()
+            if hasattr(self.model, "logit_bias") and self.model.logit_bias is not None
+            else 0.0
+        )
+
         return {
-            "logit_scale": self.model.logit_scale.exp().item(),
-            "logit_bias": getattr(self.model, "logit_bias", torch.tensor(0.0)).item(),
+            "logit_scale": logit_scale,
+            "logit_bias": logit_bias,
             "activation_function": "sigmoid" if is_siglip else "softmax",
             "tokenizer_needs_lowercase": True if is_siglip else False,
             "pad_id": 1 if (is_siglip and not is_siglip2) else 0,
@@ -140,12 +147,12 @@ class ONNXExporter:
         self.config = config
 
     def export(
-            self,
-            model: nn.Module,
-            dummy_input: torch.Tensor,
-            output_path: Path,
-            input_name: str,
-            output_name: str,
+        self,
+        model: nn.Module,
+        dummy_input: torch.Tensor,
+        output_path: Path,
+        input_name: str,
+        output_name: str,
     ) -> None:
         model.eval()
         torch.onnx.export(
@@ -177,7 +184,7 @@ def run_export(repo_id: str, base_output_dir: str) -> None:
     paths = hf_client.download_configs(config.config_files)
     if "open_clip_config.json" not in paths:
         raise FileNotFoundError("Could not find open_clip_config.json for metadata.")
-    with open(paths["open_clip_config.json"], "r") as f:
+    with open(paths["open_clip_config.json"]) as f:
         open_clip_config = json.load(f)
     model_config = model_mgr.get_model_config(open_clip_config)
     clip_model_cfg = open_clip_config.get("model_cfg", {})
@@ -190,9 +197,7 @@ def run_export(repo_id: str, base_output_dir: str) -> None:
 
     # Export Visual ONNX
     logger.info(f"Exporting Visual Embedder (Size: {img_size})...")
-    dummy_img = torch.randn(
-        config.batch_size, 3, img_size, img_size
-    )
+    dummy_img = torch.randn(config.batch_size, 3, img_size, img_size)
     exporter.export(
         VisualWrapper(model_mgr.model),
         dummy_img,
@@ -226,7 +231,8 @@ def main():
         "--id",
         type=str,
         required=True,
-        help="HuggingFace repository ID (e.g., 'timm/ViT-SO400M-16-SigLIP2-384'). Must be open_clip compatible",
+        help="HuggingFace repository ID (e.g., 'timm/ViT-SO400M-16-SigLIP2-384'). "
+        "Must be open_clip compatible",
     )
     parser.add_argument(
         "--output",
@@ -241,7 +247,7 @@ def main():
         run_export(args.id, args.output)
     except Exception:
         logger.exception("Export failed")
-        exit(1)
+        sys.exit(1)
 
 
 if __name__ == "__main__":

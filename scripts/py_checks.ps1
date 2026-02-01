@@ -1,5 +1,5 @@
 Write-Host " ----- [ ruff format ] ----- "
-uvx ruff format .\general_export_onnx.py
+uvx ruff format .\pull_onnx.py
 
 Write-Host " ----- [ ruff check --fix ] ----- "
-uvx ruff check --fix .\general_export_onnx.py
+uvx ruff check --select ALL --fix .\pull_onnx.py

@@ -21,12 +21,12 @@ fn softmax(logits: &[f32]) -> Vec<f32> {
 fn main() -> Result<()> {
     color_eyre::install()?;
 
-    let model_id = "timm/ViT-SO400M-16-SigLIP2-384";
-    let user_home = env::home_dir().map_or_else(
+    let model_id = "timm/vit_base_patch32_clip_224.openai";
+    let base_folder = env::home_dir().map_or_else(
         || Path::new(".open_clip_cache").to_owned(),
         |p| p.join(".cache/open_clip_rs"),
     );
-    let model_dir = user_home.join(model_id);
+    let model_dir = base_folder.join(model_id);
 
     let img_dir = PathBuf::from(format!("{ASSETS_FOLDER}/img"));
     println!(" - Loading Embedders...");
