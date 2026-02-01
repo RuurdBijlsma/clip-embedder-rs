@@ -3,7 +3,8 @@
 use color_eyre::eyre::Result;
 use image::{ImageBuffer, Rgb};
 use ndarray::{Array4, ArrayView1, s};
-use open_clip::{TextEmbedder, VisionEmbedder};
+use open_clip_inference::config::OpenClipConfig;
+use open_clip_inference::{TextEmbedder, VisionEmbedder};
 use std::path::Path;
 
 fn get_stats(data: &ArrayView1<f32>) -> (f32, f32) {
@@ -13,11 +14,7 @@ fn get_stats(data: &ArrayView1<f32>) -> (f32, f32) {
 }
 
 #[allow(clippy::cast_sign_loss)]
-fn save_debug_image(
-    pix: &Array4<f32>,
-    config: &open_clip::config::OpenClipConfig,
-    filename: &str,
-) -> Result<()> {
+fn save_debug_image(pix: &Array4<f32>, config: &OpenClipConfig, filename: &str) -> Result<()> {
     let height = pix.shape()[2];
     let width = pix.shape()[3];
     let mut img_buf = ImageBuffer::new(width as u32, height as u32);
