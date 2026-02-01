@@ -1,7 +1,8 @@
 use color_eyre::eyre::Result;
 use open_clip::config::LocalConfig;
-use open_clip::{TextTower, VisionTower};
-use std::path::PathBuf;
+use open_clip::{TextEmbedder, VisionEmbedder};
+use std::env;
+use std::path::{Path, PathBuf};
 use std::time::Instant;
 
 const ASSETS_FOLDER: &str = "assets";
@@ -20,22 +21,26 @@ fn softmax(logits: &[f32]) -> Vec<f32> {
 fn main() -> Result<()> {
     color_eyre::install()?;
 
-    // Switch this path depending on which model you are testing
-    let model_dir = PathBuf::from(format!("{ASSETS_FOLDER}/timm/ViT-SO400M-16-SigLIP2-384"));
-    let img_dir = PathBuf::from(format!("{ASSETS_FOLDER}/img"));
+    let model_id = "timm/ViT-SO400M-16-SigLIP2-384";
+    let user_home = env::home_dir().map_or_else(
+        || Path::new(".open_clip_cache").to_owned(),
+        |p| p.join(".cache/open_clip_rs"),
+    );
+    let model_dir = user_home.join(model_id);
 
-    println!("🚀 Loading Towers...");
+    let img_dir = PathBuf::from(format!("{ASSETS_FOLDER}/img"));
+    println!(" - Loading Embedders...");
     let start = Instant::now();
 
     let local_config = LocalConfig::from_file(model_dir.join("model_config.json"))
         .expect("Failed to load model_config.json");
 
-    let mut vision_tower = VisionTower::new(
+    let mut vision_embedder = VisionEmbedder::new(
         model_dir.join("visual.onnx"),
         model_dir.join("open_clip_config.json"),
     )?;
 
-    let mut text_tower = TextTower::new(
+    let mut text_embedder = TextEmbedder::new(
         model_dir.join("text.onnx"),
         model_dir.join("open_clip_config.json"),
         model_dir.join("tokenizer.json"),
@@ -43,7 +48,7 @@ fn main() -> Result<()> {
         local_config.pad_id,
     )?;
 
-    println!("✅ Loaded in {:.2?}", start.elapsed());
+    println!(" - Loaded in {:.2?}", start.elapsed());
 
     let query_text = "A photo of Rocks";
     let image_files = vec![
@@ -66,13 +71,13 @@ fn main() -> Result<()> {
         }
     }
 
-    println!("🧠 Embedding {} images...", images.len());
+    println!(" - Embedding {} images...", images.len());
     let start_inf = Instant::now();
 
-    let img_embs = vision_tower.embed_images(&images)?;
-    let text_embs = text_tower.embed_texts(&[query_text.to_string()])?;
+    let img_embs = vision_embedder.embed_images(&images)?;
+    let text_embs = text_embedder.embed_texts(&[query_text.to_string()])?;
 
-    println!("⚡ Inference completed in {:.2?}", start_inf.elapsed());
+    println!(" - Inference completed in {:.2?}", start_inf.elapsed());
 
     // 1. Calculate Raw Similarities (Cosine Similarity since embeddings are normalized)
     let text_vec = text_embs.row(0);
@@ -102,13 +107,13 @@ fn main() -> Result<()> {
     results.sort_by(|a, b| b.1.partial_cmp(a.1).unwrap());
 
     // 5. Display Results
-    println!("\n🔍 SEARCH RESULTS ({})", activation.to_uppercase());
+    println!(" - Search results ({})", activation.to_uppercase());
     println!("Query: \"{query_text}\"");
     println!("Logit Scale: {scale:.4} | Logit Bias: {bias:.4}");
     println!("{:-<60}", "");
 
     for (i, (name, prob)) in results.iter().enumerate() {
-        let marker = if i == 0 { "★ [BEST]" } else { "  " };
+        let marker = if i == 0 { "★ " } else { "  " };
         // Sigmoid probabilities are independent 0.0-1.0
         // Softmax probabilities sum to 1.0 across the whole list
         println!("{} {:<20} | {:>6.2}%", marker, name, *prob * 100.0);

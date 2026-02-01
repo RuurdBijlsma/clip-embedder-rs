@@ -6,7 +6,7 @@ use ort::value::Value;
 use std::path::Path;
 use tokenizers::{PaddingParams, PaddingStrategy, Tokenizer, TruncationParams};
 
-pub struct TextTower {
+pub struct TextEmbedder {
     pub session: OnnxSession,
     pub config: OpenClipConfig,
     pub tokenizer_needs_lowercase: bool,
@@ -15,7 +15,7 @@ pub struct TextTower {
     mask_name: Option<String>,
 }
 
-impl TextTower {
+impl TextEmbedder {
     pub fn new(
         model_path: impl AsRef<Path>,
         config_path: impl AsRef<Path>,

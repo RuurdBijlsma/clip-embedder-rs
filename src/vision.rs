@@ -7,13 +7,13 @@ use ort::value::Value;
 use rayon::prelude::*;
 use std::path::Path;
 
-pub struct VisionTower {
+pub struct VisionEmbedder {
     pub session: OnnxSession,
     pub config: OpenClipConfig,
     pub input_name: String,
 }
 
-impl VisionTower {
+impl VisionEmbedder {
     pub fn new(model_path: impl AsRef<Path>, config_path: impl AsRef<Path>) -> Result<Self> {
         let session = OnnxSession::new(model_path)?;
         let config = OpenClipConfig::from_file(config_path)?;

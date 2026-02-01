@@ -6,5 +6,5 @@ pub mod text;
 pub mod vision;
 
 pub use error::{ClipError, Result};
-pub use text::TextTower;
-pub use vision::VisionTower;
+pub use text::TextEmbedder;
+pub use vision::VisionEmbedder;

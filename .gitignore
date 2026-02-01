@@ -1,3 +1,6 @@
 .idea
 debug*.png
 target
+pyproject.toml
+uv.lock
+.venv
