@@ -1,35 +1,36 @@
-use crate::config::OpenClipConfig;
+use crate::config::{OnnxModelConfig, OpenClipConfig};
 use crate::error::{ClipError, Result};
 use crate::onnx::OnnxSession;
 use ndarray::Array2;
 use ort::value::Value;
-use std::path::Path;
 use tokenizers::{PaddingParams, PaddingStrategy, Tokenizer, TruncationParams};
 
 pub struct TextEmbedder {
     pub session: OnnxSession,
     pub config: OpenClipConfig,
-    pub tokenizer_needs_lowercase: bool,
+    pub model_config: OnnxModelConfig,
     tokenizer: Tokenizer,
     id_name: String,
     mask_name: Option<String>,
 }
 
 impl TextEmbedder {
-    pub fn new(
-        model_path: impl AsRef<Path>,
-        config_path: impl AsRef<Path>,
-        tokenizer_path: impl AsRef<Path>,
-        tokenizer_needs_lowercase: bool,
-        explicit_pad_id: Option<u32>,
-    ) -> Result<Self> {
+    pub fn new(model_id: &str) -> Result<Self> {
+        let model_dir = crate::utils::get_model_dir(model_id);
+        let model_path = model_dir.join("text.onnx");
+        let config_path = model_dir.join("open_clip_config.json");
+        let tokenizer_path = model_dir.join("tokenizer.json");
+        let model_config_path = model_dir.join("model_config.json");
+
+        let model_config = OnnxModelConfig::from_file(model_config_path)?;
         let session = OnnxSession::new(model_path)?;
         let config = OpenClipConfig::from_file(config_path)?;
 
         let mut tokenizer = Tokenizer::from_file(tokenizer_path)
             .map_err(|e| ClipError::Tokenizer(e.to_string()))?;
 
-        let pad_id = explicit_pad_id
+        let pad_id = model_config
+            .pad_id
             .or_else(|| tokenizer.get_vocab(true).get("<pad>").copied())
             .ok_or_else(|| ClipError::Config("No pad token found in tokenizer".into()))?;
 
@@ -55,7 +56,7 @@ impl TextEmbedder {
         Ok(Self {
             session,
             config,
-            tokenizer_needs_lowercase,
+            model_config,
             tokenizer,
             id_name,
             mask_name,
@@ -63,7 +64,7 @@ impl TextEmbedder {
     }
 
     pub fn tokenize(&self, texts: &[String]) -> Result<(Array2<i64>, Array2<i64>)> {
-        let processed_texts: Vec<String> = if self.tokenizer_needs_lowercase {
+        let processed_texts: Vec<String> = if self.model_config.tokenizer_needs_lowercase {
             texts.iter().map(|s| s.to_lowercase()).collect()
         } else {
             texts.to_vec()
@@ -91,6 +92,11 @@ impl TextEmbedder {
             .map_err(|e| ClipError::Inference(e.to_string()))?;
 
         Ok((ids_array, mask_array))
+    }
+
+    pub fn embed_text(&mut self, text: String) -> Result<ndarray::Array1<f32>> {
+        let embs = self.embed_texts(&[text])?;
+        Ok(embs.index_axis(ndarray::Axis(0), 0).to_owned())
     }
 
     pub fn embed_texts(&mut self, texts: &[String]) -> Result<Array2<f32>> {

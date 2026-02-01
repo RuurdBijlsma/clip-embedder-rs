@@ -1,8 +1,6 @@
 use color_eyre::eyre::Result;
-use open_clip::config::LocalConfig;
 use open_clip::{TextEmbedder, VisionEmbedder};
-use std::env;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::time::Instant;
 
 const ASSETS_FOLDER: &str = "assets";
@@ -21,32 +19,13 @@ fn softmax(logits: &[f32]) -> Vec<f32> {
 fn main() -> Result<()> {
     color_eyre::install()?;
 
-    let model_id = "timm/vit_base_patch32_clip_224.openai";
-    let base_folder = env::home_dir().map_or_else(
-        || Path::new(".open_clip_cache").to_owned(),
-        |p| p.join(".cache/open_clip_rs"),
-    );
-    let model_dir = base_folder.join(model_id);
-
     let img_dir = PathBuf::from(format!("{ASSETS_FOLDER}/img"));
     println!(" - Loading Embedders...");
     let start = Instant::now();
 
-    let local_config = LocalConfig::from_file(model_dir.join("model_config.json"))
-        .expect("Failed to load model_config.json");
-
-    let mut vision_embedder = VisionEmbedder::new(
-        model_dir.join("visual.onnx"),
-        model_dir.join("open_clip_config.json"),
-    )?;
-
-    let mut text_embedder = TextEmbedder::new(
-        model_dir.join("text.onnx"),
-        model_dir.join("open_clip_config.json"),
-        model_dir.join("tokenizer.json"),
-        local_config.tokenizer_needs_lowercase,
-        local_config.pad_id,
-    )?;
+    let model_id = "timm/ViT-SO400M-16-SigLIP2-384";
+    let mut vision_embedder = VisionEmbedder::new(model_id)?;
+    let mut text_embedder = TextEmbedder::new(model_id)?;
 
     println!(" - Loaded in {:.2?}", start.elapsed());
 
@@ -84,15 +63,16 @@ fn main() -> Result<()> {
     let similarities = img_embs.dot(&text_vec);
 
     // 2. Apply Scale and Bias to get Logits
-    let scale = local_config.logit_scale.unwrap_or(1.0);
-    let bias = local_config.logit_bias.unwrap_or(0.0);
+    let scale = text_embedder.model_config.logit_scale.unwrap_or(1.0);
+    let bias = text_embedder.model_config.logit_bias.unwrap_or(0.0);
     let logits: Vec<f32> = similarities
         .iter()
         .map(|&sim| sim.mul_add(scale, bias))
         .collect();
 
     // 3. Apply the correct Activation Function
-    let activation = local_config
+    let activation = text_embedder
+        .model_config
         .activation_function
         .as_deref()
         .unwrap_or("softmax");
@@ -111,12 +91,22 @@ fn main() -> Result<()> {
     println!("Query: \"{query_text}\"");
     println!("Logit Scale: {scale:.4} | Logit Bias: {bias:.4}");
     println!("{:-<60}", "");
+    let score_suffix = if activation.to_lowercase() == "softmax" {
+        "%"
+    } else {
+        ""
+    };
 
     for (i, (name, prob)) in results.iter().enumerate() {
         let marker = if i == 0 { "★ " } else { "  " };
         // Sigmoid probabilities are independent 0.0-1.0
         // Softmax probabilities sum to 1.0 across the whole list
-        println!("{} {:<20} | {:>6.2}%", marker, name, *prob * 100.0);
+        println!(
+            "{} {:<20} | {:>6.2}{score_suffix}",
+            marker,
+            name,
+            *prob * 100.0
+        );
     }
 
     Ok(())

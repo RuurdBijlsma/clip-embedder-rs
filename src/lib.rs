@@ -3,6 +3,7 @@ pub mod config;
 pub mod error;
 pub mod onnx;
 pub mod text;
+pub mod utils;
 pub mod vision;
 
 pub use error::{ClipError, Result};

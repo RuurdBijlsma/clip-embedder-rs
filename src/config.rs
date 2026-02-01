@@ -4,7 +4,7 @@ use std::fs;
 use std::path::Path;
 
 #[derive(Debug, Clone, Deserialize, Default)]
-pub struct LocalConfig {
+pub struct OnnxModelConfig {
     #[serde(default)]
     pub tokenizer_needs_lowercase: bool,
     pub activation_function: Option<String>,
@@ -13,7 +13,7 @@ pub struct LocalConfig {
     pub pad_id: Option<u32>,
 }
 
-impl LocalConfig {
+impl OnnxModelConfig {
     pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
         let content = fs::read_to_string(path)?;
         Ok(serde_json::from_str(&content)?)

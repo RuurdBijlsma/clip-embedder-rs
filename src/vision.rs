@@ -1,22 +1,28 @@
-use crate::config::OpenClipConfig;
+use crate::config::{OnnxModelConfig, OpenClipConfig};
 use crate::error::{ClipError, Result};
 use crate::onnx::OnnxSession;
 use image::{DynamicImage, GenericImageView, imageops::FilterType};
 use ndarray::{Array2, Array4, ArrayView, Axis, IxDyn};
 use ort::value::Value;
 use rayon::prelude::*;
-use std::path::Path;
 
 pub struct VisionEmbedder {
     pub session: OnnxSession,
     pub config: OpenClipConfig,
+    pub local_config: OnnxModelConfig,
     pub input_name: String,
 }
 
 impl VisionEmbedder {
-    pub fn new(model_path: impl AsRef<Path>, config_path: impl AsRef<Path>) -> Result<Self> {
+    pub fn new(model_id: &str) -> Result<Self> {
+        let model_dir = crate::utils::get_model_dir(model_id);
+        let model_path = model_dir.join("visual.onnx");
+        let config_path = model_dir.join("open_clip_config.json");
+        let local_config_path = model_dir.join("model_config.json");
+
         let session = OnnxSession::new(model_path)?;
         let config = OpenClipConfig::from_file(config_path)?;
+        let local_config = OnnxModelConfig::from_file(local_config_path)?;
 
         let input_name = session
             .find_input(&["pixel_values", "input"])
@@ -25,8 +31,14 @@ impl VisionEmbedder {
         Ok(Self {
             session,
             config,
+            local_config,
             input_name,
         })
+    }
+
+    pub fn embed_image(&mut self, image: DynamicImage) -> Result<ndarray::Array1<f32>> {
+        let embs = self.embed_images(&[image])?;
+        Ok(embs.index_axis(Axis(0), 0).to_owned())
     }
 
     pub fn embed_images(&mut self, images: &[DynamicImage]) -> Result<Array2<f32>> {

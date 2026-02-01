@@ -3,7 +3,6 @@
 use color_eyre::eyre::Result;
 use image::{ImageBuffer, Rgb};
 use ndarray::{Array4, ArrayView1, s};
-use open_clip::config::LocalConfig;
 use open_clip::{TextEmbedder, VisionEmbedder};
 use std::path::Path;
 
@@ -41,25 +40,11 @@ fn main() -> Result<()> {
     color_eyre::install()?;
 
     let assets = Path::new("assets");
-    let model_dir = assets.join("timm/ViT-SO400M-16-SigLIP2-384");
     let img_path = assets.join("img/beach_rocks.jpg");
 
-    let mut vision_embedder = VisionEmbedder::new(
-        model_dir.join("visual.onnx"),
-        model_dir.join("open_clip_config.json"),
-    )?;
-
-    let local_config = LocalConfig::from_file(model_dir.join("model_config.json"))
-        .expect("Failed to get local config file");
-
-    // Pass the new model_config.json path here
-    let mut text_embedder = TextEmbedder::new(
-        model_dir.join("text.onnx"),
-        model_dir.join("open_clip_config.json"),
-        model_dir.join("tokenizer.json"),
-        local_config.tokenizer_needs_lowercase,
-        local_config.pad_id,
-    )?;
+    let model_id = "timm/ViT-SO400M-16-SigLIP2-384";
+    let mut vision_embedder = VisionEmbedder::new(model_id)?;
+    let mut text_embedder = TextEmbedder::new(model_id)?;
 
     let query_text = "A photo of Rocks";
     let img = image::open(&img_path)?;
@@ -69,23 +54,26 @@ fn main() -> Result<()> {
         "Image Mode:     {}",
         vision_embedder.config.preprocess_cfg.resize_mode
     );
-    println!("Lowercase Req:  {}", text_embedder.tokenizer_needs_lowercase);
 
     // 1. Text Preprocessing
     let (ids, mask) = text_embedder.tokenize(&[query_text.to_string()])?;
     println!("\n[TEXT PREPROCESSING]");
     println!(
         "Input IDs (first 10): {:?}",
-        ids.slice(ndarray::s![0, ..10]).to_vec()
+        ids.slice(s![0, ..10]).to_vec()
     );
     println!(
         "Attention Mask:       {:?}",
-        mask.slice(ndarray::s![0, ..10]).to_vec()
+        mask.slice(s![0, ..10]).to_vec()
     );
 
     // --- 2. Image Preprocessing ---
     let pixel_tensor = vision_embedder.preprocess(&img)?;
-    save_debug_image(&pixel_tensor, &vision_embedder.config, "debug_onnx_input.png")?;
+    save_debug_image(
+        &pixel_tensor,
+        &vision_embedder.config,
+        "debug_onnx_input.png",
+    )?;
 
     let flat_pixels = pixel_tensor
         .view()
