@@ -106,15 +106,15 @@ cargo run --example search
 The following models have been tested to work with `pull_onnx.py` & this Rust crate. I picked these models as they are
 highest performing in benchmarks or most popular on HuggingFace.
 
-* `imageomics/bioclip`
-* `laion/CLIP-ViT-B-32-laion2B-s34B-b79K`
-* `Marqo/marqo-fashionSigLIP`
-* `microsoft/BiomedCLIP-PubMedBERT_256-vit_base_patch16_224`
 * `timm/MobileCLIP2-S4-OpenCLIP`
-* `timm/PE-Core-bigG-14-448`
-* `timm/ViT-SO400M-14-SigLIP-384`
+* `laion/CLIP-ViT-B-32-laion2B-s34B-b79K`
 * `timm/ViT-SO400M-16-SigLIP2-384`
 * `timm/vit_base_patch32_clip_224.openai`
+* `microsoft/BiomedCLIP-PubMedBERT_256-vit_base_patch16_224`
+* `imageomics/bioclip`
+* `Marqo/marqo-fashionSigLIP`
+* `timm/PE-Core-bigG-14-448`
+* `timm/ViT-SO400M-14-SigLIP-384`
 
 ### Verified Embeddings
 
@@ -122,11 +122,11 @@ The following models have been verified to produce embeddings in Rust that match
 
 Python implementations here: https://github.com/RuurdBijlsma/clip-model-research
 
-* `Marqo/marqo-fashionSigLIP`
-* `timm/MobileCLIP2-S4-OpenCLIP`
-* `timm/ViT-SO400M-14-SigLIP-384`
 * `timm/ViT-SO400M-16-SigLIP2-384`
+* `timm/MobileCLIP2-S4-OpenCLIP`
 * `timm/vit_base_patch32_clip_224.openai`
+* `timm/ViT-SO400M-14-SigLIP-384`
+* `Marqo/marqo-fashionSigLIP`
 
 ## Troubleshooting
 
