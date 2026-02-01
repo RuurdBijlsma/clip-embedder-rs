@@ -1,6 +1,3 @@
-/target
 .idea
-.fastembed_cache
-.venv
-debug_input_tensor.png
 debug*.png
+target
