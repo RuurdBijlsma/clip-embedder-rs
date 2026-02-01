@@ -21,7 +21,6 @@ impl TextEmbedder {
         Self::new(&model_dir)
     }
 
-    // todo: use bon and let user set cache folder+model_id, or model folder directly
     pub fn new(model_dir: &Path) -> Result<Self, ClipError> {
         OnnxSession::verify_model_dir(model_dir)?;
         let model_path = model_dir.join("text.onnx");
