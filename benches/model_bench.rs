@@ -1,5 +1,6 @@
+#![allow(clippy::significant_drop_tightening)]
 use criterion::{Criterion, criterion_group};
-use open_clip::{TextEmbedder, VisionEmbedder};
+use open_clip_inference::{TextEmbedder, VisionEmbedder};
 use std::path::PathBuf;
 
 const MODELS: &[&str] = &[

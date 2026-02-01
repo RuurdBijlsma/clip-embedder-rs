@@ -12,14 +12,14 @@
 //! ## Prerequisites
 //!
 //! 1. [Rust & Cargo](https://rust-lang.org/).
-//! 2. [uv](https://docs.astral.sh/uv/) - to generate ONNX files from HuggingFace models.
+//! 2. [uv](https://docs.astral.sh/uv/) - to generate ONNX files from `HuggingFace` models.
 //! 3. [onnxruntime](https://github.com/microsoft/onnxruntime) - It's linked dynamically.
 //!
 //! ## Usage
 //!
 //! ### Step 1: Export Model to ONNX
 //!
-//! Use the provided `pull_onnx.py` script to download and export an OpenCLIP model from Hugging Face.
+//! Use the provided `pull_onnx.py` script to download and export an `OpenCLIP` model from Hugging Face.
 //!
 //! ```shell
 //! # Run the export script - uv will handle the dependencies
@@ -32,7 +32,7 @@
 //! Add `open_clip` to your `Cargo.toml`.
 //!
 //! ```rust,no_run
-//! use open_clip::{VisionEmbedder, TextEmbedder};
+//! use open_clip_inference::{VisionEmbedder, TextEmbedder};
 //! use image::ImageReader;
 //! use std::path::Path;
 //!

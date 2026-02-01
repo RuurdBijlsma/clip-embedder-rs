@@ -1,7 +1,7 @@
-# OpenCLIP in Rust
+# OpenCLIP embedding in Rust
 
-Easily run pre-trained [open_clip](https://github.com/mlfoundations/open_clip) compatible models in Rust via ONNX
-Runtime.
+Easily run pre-trained [open_clip](https://github.com/mlfoundations/open_clip) compatible embedding models in Rust via
+ONNX Runtime.
 
 ## Features
 
@@ -32,10 +32,10 @@ uv run pull_onnx.py --id "timm/MobileCLIP2-S2-OpenCLIP"
 
 #### From `examples/basic.rs`
 
-First, add `open_clip` to your `Cargo.toml`.
+First, add `open_clip_inference` to your `Cargo.toml`.
 
 ```rust
-use open_clip::{VisionEmbedder, TextEmbedder};
+use open_clip_inference::{VisionEmbedder, TextEmbedder};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let model_id = "timm/MobileCLIP2-S2-OpenCLIP";
@@ -146,6 +146,7 @@ $env:ORT_DYLIB_PATH = "C:/Apps/onnxruntime/lib/onnxruntime.dll"
 ```
 
 **Shell example:**
+
 ```shell
 export ORT_DYLIB_PATH="/usr/local/lib/libonnxruntime.so"
 ```

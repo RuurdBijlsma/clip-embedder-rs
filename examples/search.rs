@@ -1,5 +1,5 @@
 use color_eyre::eyre::Result;
-use open_clip::{TextEmbedder, VisionEmbedder};
+use open_clip_inference::{TextEmbedder, VisionEmbedder};
 use std::path::PathBuf;
 use std::time::Instant;
 

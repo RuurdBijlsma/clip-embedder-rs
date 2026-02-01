@@ -1,7 +1,13 @@
 [package]
-name = "open_clip"
+name = "open_clip_inference"
 version = "0.1.0"
 edition = "2024"
+description = "Run OpenCLIP compatible models in Rust via ONNX Runtime"
+repository = "https://github.com/RuurdBijlsma/open-clip-rs"
+license = "MIT"
+keywords = ["clip", "onnx", "embedding", "inference", "computer-vision"]
+categories = ["computer-vision"]
+exclude = ["assets", "benches", "examples", "scripts", "tests"]
 
 [dependencies]
 ort = { version = "2.0.0-rc.11", features = ["ndarray", "load-dynamic"] }
