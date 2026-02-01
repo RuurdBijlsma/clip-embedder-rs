@@ -4,10 +4,9 @@ use std::path::PathBuf;
 
 const MODELS: &[&str] = &[
     "laion/CLIP-ViT-B-32-laion2B-s34B-b79K",
-    "timm/vit_base_patch32_clip_224.openai",
-    "timm/ViT-SO400M-14-SigLIP-384",
-    "timm/ViT-SO400M-16-SigLIP2-384",
     "timm/MobileCLIP2-S2-OpenCLIP",
+    "timm/vit_base_patch32_clip_224.openai",
+    "timm/ViT-SO400M-16-SigLIP2-384",
 ];
 
 fn benchmark_models(c: &mut Criterion) {
@@ -22,6 +21,7 @@ fn benchmark_models(c: &mut Criterion) {
             .unwrap_or_else(|_| panic!("Failed to load text embedder for {model_id}"));
 
         let mut group = c.benchmark_group(*model_id);
+        group.sample_size(20);
 
         // 1. Vision Preprocessing
         group.bench_function("vision/preprocess", |b| {
@@ -31,11 +31,6 @@ fn benchmark_models(c: &mut Criterion) {
         // 2. Vision Full Embedding (Preprocess + Inference)
         group.bench_function("vision/embed", |b| {
             b.iter(|| vision_embedder.embed_image(&img));
-        });
-
-        // 3. Text Preprocessing (Tokenization)
-        group.bench_function("text/preprocess", |b| {
-            b.iter(|| text_embedder.tokenize(&[text]));
         });
 
         // 4. Text Full Embedding (Tokenize + Inference)
