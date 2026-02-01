@@ -34,7 +34,6 @@ impl VisionTower {
             return Err(ClipError::Inference("Empty batch".to_string()));
         }
 
-        // Parallel preprocessing
         let processed: Vec<Array4<f32>> = images
             .par_iter()
             .map(|img| self.preprocess(img))
@@ -51,6 +50,7 @@ impl VisionTower {
             .run(ort::inputs![&self.input_name => input_tensor])?;
 
         let (shape, data) = outputs[0].try_extract_tensor::<f32>()?;
+        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
         let shape_usize: Vec<usize> = shape.iter().map(|&x| x as usize).collect();
         let view = ArrayView::from_shape(IxDyn(&shape_usize), data)
             .map_err(|e| ClipError::Inference(e.to_string()))?;
@@ -69,18 +69,24 @@ impl VisionTower {
             _ => FilterType::Nearest,
         };
 
+        #[allow(
+            clippy::single_match_else,
+            clippy::cast_precision_loss,
+            clippy::cast_possible_truncation,
+            clippy::cast_sign_loss
+        )]
         let resized = match self.config.preprocess_cfg.resize_mode.as_str() {
             "squash" => image.resize_exact(size, size, interp),
             _ => {
-                let (w, h) = image.dimensions();
-                let scale = size as f32 / w.min(h) as f32;
-                let nw = (w as f32 * scale).round() as u32;
-                let nh = (h as f32 * scale).round() as u32;
-                let r = image.resize_exact(nw, nh, interp);
-                let x = ((nw as f32 - size as f32) / 2.0).round() as u32;
-                let y = ((nh as f32 - size as f32) / 2.0).round() as u32;
+                let (width, height) = image.dimensions();
+                let scale = size as f32 / width.min(height) as f32;
+                let scaled_width = (width as f32 * scale).round() as u32;
+                let scaled_height = (height as f32 * scale).round() as u32;
+                let resized = image.resize_exact(scaled_width, scaled_height, interp);
+                let x = ((scaled_width as f32 - size as f32) / 2.0).round() as u32;
+                let y = ((scaled_height as f32 - size as f32) / 2.0).round() as u32;
 
-                r.crop_imm(x, y, size, size)
+                resized.crop_imm(x, y, size, size)
             }
         };
 
@@ -88,7 +94,10 @@ impl VisionTower {
         if rgb.width() != size || rgb.height() != size {
             return Err(ClipError::Inference(format!(
                 "Preprocessing failed: expected {}x{}, got {}x{}",
-                size, size, rgb.width(), rgb.height()
+                size,
+                size,
+                rgb.width(),
+                rgb.height()
             )));
         }
 

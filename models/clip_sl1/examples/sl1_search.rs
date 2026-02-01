@@ -1,7 +1,7 @@
 use clip_sl1::{SigLipTextModel, SigLipVisionModel};
 use color_eyre::eyre::Result;
 use ndarray::Array2;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::time::Instant;
 
 const ASSETS_FOLDER: &str = "models/clip_sl1/assets";
@@ -58,7 +58,10 @@ fn main() -> Result<()> {
     for img in &images {
         img_embeddings.extend(vision_model.embed(img)?);
     }
-    let img_embs_arr = Array2::from_shape_vec((images.len(), img_embeddings.len() / images.len()), img_embeddings)?;
+    let img_embs_arr = Array2::from_shape_vec(
+        (images.len(), img_embeddings.len() / images.len()),
+        img_embeddings,
+    )?;
 
     // Text embedding
     let text_emb = text_model.embed(query_text)?;
@@ -68,8 +71,8 @@ fn main() -> Result<()> {
 
     // SigLIP models typically have a learnable logit_scale and logit_bias
     // If you don't have a config, these are often 10.0 to 20.0 for scale
-    let logit_scale = 112.33287048339844;
-    let logit_bias = -16.54642105102539;
+    let logit_scale = 112.332_87;
+    let logit_bias = -16.546_421;
 
     // 1. Calculate similarities (Dot product)
     let similarities = img_embs_arr.dot(&text_vec);
@@ -86,7 +89,7 @@ fn main() -> Result<()> {
     results.sort_by(|a, b| b.1.partial_cmp(a.1).unwrap());
 
     println!("\n🔎 SL1 SEARCH RESULTS (SIGMOID)");
-    println!("Query: \"{}\"", query_text);
+    println!("Query: \"{query_text}\"");
     println!("{:-<60}", "");
 
     for (i, (name, prob)) in results.iter().enumerate() {

@@ -29,9 +29,8 @@ impl TextTower {
         let mut tokenizer = Tokenizer::from_file(tokenizer_path)
             .map_err(|e| ClipError::Tokenizer(e.to_string()))?;
 
-        // Extract pad token from tokenizer itself
         let pad_id = explicit_pad_id
-            .or(tokenizer.get_vocab(true).get("<pad>").copied())
+            .or_else(|| tokenizer.get_vocab(true).get("<pad>").copied())
             .ok_or_else(|| ClipError::Config("No pad token found in tokenizer".into()))?;
 
         let ctx_len = config.model_cfg.text_cfg.context_length;
@@ -56,10 +55,10 @@ impl TextTower {
         Ok(Self {
             session,
             config,
+            tokenizer_needs_lowercase,
             tokenizer,
             id_name,
             mask_name,
-            tokenizer_needs_lowercase,
         })
     }
 
@@ -79,11 +78,11 @@ impl TextTower {
 
         let ids: Vec<i64> = encodings
             .iter()
-            .flat_map(|e| e.get_ids().iter().map(|&x| x as i64))
+            .flat_map(|e| e.get_ids().iter().map(|&x| i64::from(x)))
             .collect();
         let mask: Vec<i64> = encodings
             .iter()
-            .flat_map(|e| e.get_attention_mask().iter().map(|&x| x as i64))
+            .flat_map(|e| e.get_attention_mask().iter().map(|&x| i64::from(x)))
             .collect();
 
         let ids_array = Array2::from_shape_vec((batch_size, seq_len), ids)
@@ -109,8 +108,8 @@ impl TextTower {
                 .run(ort::inputs![&self.id_name => ort_ids])?
         };
 
-        // ... (Keep existing output extraction logic)
         let (shape, data) = outputs[0].try_extract_tensor::<f32>()?;
+        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
         let shape_usize: Vec<usize> = shape.iter().map(|&x| x as usize).collect();
         let view = ndarray::ArrayView::from_shape(ndarray::IxDyn(&shape_usize), data)
             .map_err(|e| ClipError::Inference(e.to_string()))?;

@@ -12,6 +12,7 @@ fn get_stats(data: &ArrayView1<f32>) -> (f32, f32) {
     (mean, var.sqrt())
 }
 
+#[allow(clippy::cast_sign_loss)]
 fn save_debug_image(pix: &Array4<f32>, filename: &str) -> Result<()> {
     let height = pix.shape()[2];
     let width = pix.shape()[3];
@@ -92,7 +93,7 @@ fn main() -> Result<()> {
     // 4. Scoring
     let similarity: f32 = i_vec.iter().zip(t_vec.iter()).map(|(a, b)| a * b).sum();
     println!("\n[SCORING CHECK]");
-    println!("Raw Dot Product (Similarity): {:.4}", similarity);
+    println!("Raw Dot Product (Similarity): {similarity:.4}");
 
     Ok(())
 }

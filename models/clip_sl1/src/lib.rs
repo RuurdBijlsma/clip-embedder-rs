@@ -2,7 +2,7 @@
 
 use image::DynamicImage;
 use ndarray::{Array2, Array4};
-use ort::session::{builder::GraphOptimizationLevel, Session};
+use ort::session::{Session, builder::GraphOptimizationLevel};
 use ort::value::Value;
 use rayon::prelude::*;
 use std::path::Path;
@@ -131,7 +131,7 @@ impl SigLipTextModel {
     }
 
     pub fn embed(&mut self, text: &str) -> Result<Vec<f32>, SigLipError> {
-        let array = self.tokenize(&text)?;
+        let array = self.tokenize(text)?;
         let input_tensor = Value::from_array(array)?;
         let outputs = self
             .session

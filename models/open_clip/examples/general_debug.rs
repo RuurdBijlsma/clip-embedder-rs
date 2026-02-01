@@ -13,6 +13,7 @@ fn get_stats(data: &ArrayView1<f32>) -> (f32, f32) {
     (mean, var.sqrt())
 }
 
+#[allow(clippy::cast_sign_loss)]
 fn save_debug_image(
     pix: &Array4<f32>,
     config: &open_clip::config::OpenClipConfig,
@@ -122,7 +123,7 @@ fn main() -> Result<()> {
     // --- 4. Scoring ---
     let similarity = i_row.dot(&t_row);
     println!("\n[SCORING CHECK]");
-    println!("Raw Dot Product (Similarity): {:.4}", similarity);
+    println!("Raw Dot Product (Similarity): {similarity:.4}");
 
     Ok(())
 }

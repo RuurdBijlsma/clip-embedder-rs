@@ -1,6 +1,6 @@
+use crate::error::Result;
 use ort::session::{Session, builder::GraphOptimizationLevel};
 use std::path::Path;
-use crate::error::Result;
 
 pub struct OnnxSession {
     pub session: Session,
@@ -18,14 +18,18 @@ impl OnnxSession {
     }
 
     /// Helper to check if the model expects a specific input name
+    #[must_use]
     pub fn has_input(&self, name: &str) -> bool {
         self.session.inputs().iter().any(|i| i.name() == name)
     }
 
     /// Helper to find the first likely input name for a specific role
+    #[must_use]
     pub fn find_input(&self, possibilities: &[&str]) -> Option<String> {
         for &p in possibilities {
-            if self.has_input(p) { return Some(p.to_string()); }
+            if self.has_input(p) {
+                return Some(p.to_string());
+            }
         }
         None
     }

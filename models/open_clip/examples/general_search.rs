@@ -87,7 +87,10 @@ fn main() -> Result<()> {
         .collect();
 
     // 3. Apply the correct Activation Function
-    let activation = local_config.activation_function.as_deref().unwrap_or("softmax");
+    let activation = local_config
+        .activation_function
+        .as_deref()
+        .unwrap_or("softmax");
     let probs = if activation == "sigmoid" {
         logits.iter().map(|&l| sigmoid(l)).collect()
     } else {
@@ -100,8 +103,8 @@ fn main() -> Result<()> {
 
     // 5. Display Results
     println!("\n🔍 SEARCH RESULTS ({})", activation.to_uppercase());
-    println!("Query: \"{}\"", query_text);
-    println!("Logit Scale: {:.4} | Logit Bias: {:.4}", scale, bias);
+    println!("Query: \"{query_text}\"");
+    println!("Logit Scale: {scale:.4} | Logit Bias: {bias:.4}");
     println!("{:-<60}", "");
 
     for (i, (name, prob)) in results.iter().enumerate() {
