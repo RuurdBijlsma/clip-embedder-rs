@@ -36,9 +36,11 @@ impl VisionEmbedder {
         })
     }
 
-    pub fn embed_image(&mut self, image: DynamicImage) -> Result<ndarray::Array1<f32>> {
-        let embs = self.embed_images(&[image])?;
-        Ok(embs.index_axis(Axis(0), 0).to_owned())
+    pub fn embed_image(&mut self, image: &DynamicImage) -> Result<ndarray::Array1<f32>> {
+        let embs = self.embed_images(std::slice::from_ref(image))?;
+        let len = embs.len();
+        embs.into_shape_with_order(len)
+            .map_err(|e| ClipError::Inference(e.to_string()))
     }
 
     pub fn embed_images(&mut self, images: &[DynamicImage]) -> Result<Array2<f32>> {
@@ -46,14 +48,16 @@ impl VisionEmbedder {
             return Err(ClipError::Inference("Empty batch".to_string()));
         }
 
-        let processed: Vec<Array4<f32>> = images
-            .par_iter()
-            .map(|img| self.preprocess(img))
-            .collect::<Result<Vec<_>>>()?;
+        let batch_size = images.len();
+        let size = self.config.model_cfg.vision_cfg.image_size as usize;
 
-        let views: Vec<_> = processed.iter().map(|a| a.view()).collect();
-        let batch_tensor = ndarray::concatenate(Axis(0), &views)
-            .map_err(|e| ClipError::Inference(e.to_string()))?;
+        let mut batch_tensor = Array4::<f32>::zeros((batch_size, 3, size, size));
+
+        batch_tensor
+            .axis_iter_mut(Axis(0))
+            .into_par_iter()
+            .zip(images.par_iter())
+            .try_for_each(|(mut slot, img)| self.preprocess_into(img, &mut slot))?;
 
         let input_tensor = Value::from_array(batch_tensor)?;
         let outputs = self
@@ -73,7 +77,11 @@ impl VisionEmbedder {
             .to_owned())
     }
 
-    pub fn preprocess(&self, image: &DynamicImage) -> Result<Array4<f32>> {
+    pub fn preprocess_into(
+        &self,
+        image: &DynamicImage,
+        out_view: &mut ndarray::ArrayViewMut3<f32>,
+    ) -> Result<()> {
         let size = self.config.model_cfg.vision_cfg.image_size;
         let interp = match self.config.preprocess_cfg.interpolation.as_str() {
             "bicubic" => FilterType::CatmullRom,
@@ -97,37 +105,40 @@ impl VisionEmbedder {
                 let resized = image.resize_exact(scaled_width, scaled_height, interp);
                 let x = ((scaled_width as f32 - size as f32) / 2.0).round() as u32;
                 let y = ((scaled_height as f32 - size as f32) / 2.0).round() as u32;
-
                 resized.crop_imm(x, y, size, size)
             }
         };
 
         let rgb = resized.to_rgb8();
-        if rgb.width() != size || rgb.height() != size {
-            return Err(ClipError::Inference(format!(
-                "Preprocessing failed: expected {}x{}, got {}x{}",
-                size,
-                size,
-                rgb.width(),
-                rgb.height()
-            )));
-        }
-
         let (mean, std) = (
             self.config.preprocess_cfg.mean,
             self.config.preprocess_cfg.std,
         );
-        let mut flat = vec![0.0f32; 3 * (size as usize).pow(2)];
 
+        // out_view is (3, H, W). map Interleaved RGB (HWC) to Planar (CHW).
+        let pixels = rgb.as_raw();
         let channel_len = (size as usize).pow(2);
         for c in 0..3 {
+            let channel_slice = out_view.index_axis_mut(Axis(0), c);
+            let flat_channel = channel_slice
+                .into_slice()
+                .ok_or_else(|| ClipError::Inference("Layout mismatch".into()))?;
             for i in 0..channel_len {
-                let val = f32::from(rgb.as_raw()[i * 3 + c]) / 255.0;
-                flat[c * channel_len + i] = (val - mean[c]) / std[c];
+                let val = f32::from(pixels[i * 3 + c]) / 255.0;
+                flat_channel[i] = (val - mean[c]) / std[c];
             }
         }
 
-        Array4::from_shape_vec((1, 3, size as usize, size as usize), flat)
-            .map_err(|e| ClipError::Inference(e.to_string()))
+        Ok(())
+    }
+
+    pub fn preprocess(&self, image: &DynamicImage) -> Result<Array4<f32>> {
+        let size = self.config.model_cfg.vision_cfg.image_size as usize;
+        let mut arr = Array4::zeros((1, 3, size, size));
+        {
+            let mut view = arr.index_axis_mut(Axis(0), 0);
+            self.preprocess_into(image, &mut view)?;
+        }
+        Ok(arr)
     }
 }

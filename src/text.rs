@@ -63,16 +63,15 @@ impl TextEmbedder {
         })
     }
 
-    pub fn tokenize(&self, texts: &[String]) -> Result<(Array2<i64>, Array2<i64>)> {
-        let processed_texts: Vec<String> = if self.model_config.tokenizer_needs_lowercase {
-            texts.iter().map(|s| s.to_lowercase()).collect()
+    pub fn tokenize<T: AsRef<str>>(&self, texts: &[T]) -> Result<(Array2<i64>, Array2<i64>)> {
+        let encodings = if self.model_config.tokenizer_needs_lowercase {
+            let lowered = texts.iter().map(|s| s.as_ref().to_lowercase()).collect();
+            self.tokenizer.encode_batch(lowered, true)
         } else {
-            texts.to_vec()
-        };
-        let encodings = self
-            .tokenizer
-            .encode_batch(processed_texts, true)
-            .map_err(|e| ClipError::Tokenizer(e.to_string()))?;
+            let texts = texts.iter().map(AsRef::as_ref).collect();
+            self.tokenizer.encode_batch(texts, true)
+        }
+        .map_err(|e| ClipError::Tokenizer(e.to_string()))?;
 
         let batch_size = encodings.len();
         let seq_len = self.config.model_cfg.text_cfg.context_length;
@@ -94,12 +93,14 @@ impl TextEmbedder {
         Ok((ids_array, mask_array))
     }
 
-    pub fn embed_text(&mut self, text: String) -> Result<ndarray::Array1<f32>> {
+    pub fn embed_text(&mut self, text: &str) -> Result<ndarray::Array1<f32>> {
         let embs = self.embed_texts(&[text])?;
-        Ok(embs.index_axis(ndarray::Axis(0), 0).to_owned())
+        let len = embs.len();
+        embs.into_shape_with_order(len)
+            .map_err(|e| ClipError::Inference(e.to_string()))
     }
 
-    pub fn embed_texts(&mut self, texts: &[String]) -> Result<Array2<f32>> {
+    pub fn embed_texts<T: AsRef<str>>(&mut self, texts: &[T]) -> Result<Array2<f32>> {
         let (ids_tensor, mask_tensor) = self.tokenize(texts)?;
 
         let ort_ids = Value::from_array(ids_tensor)?;
