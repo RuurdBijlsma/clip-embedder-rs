@@ -2,20 +2,27 @@
 # requires-python = "==3.12.*"
 # dependencies = [
 #    "huggingface_hub[hf_xet]==0.36.0",
-#    "onnxruntime-gpu==1.23.2",
-#    "onnxscript==0.5.7",
+#    "onnxscript==0.6.0",
 #    "open-clip-torch==3.2.0",
-#    "pillow==12.1.0",
-#    "torch==2.10.0",
-#    "torchvision==0.25.0",
-#    "transformers==4.57.6",
-#    "timm==1.0.24",
+#    "rich==14.3.1",
 # ]
 # ///
+import logging
+
+from rich.logging import RichHandler
+
+# Setup Logging
+logging.basicConfig(
+    level=logging.WARNING,
+    format="%(message)s",
+    datefmt="[%X]",
+    handlers=[RichHandler(rich_tracebacks=True, show_path=False)]
+)
+logger = logging.getLogger("export_script")
+logger.setLevel(logging.INFO)
 
 import argparse
 import json
-import logging
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
@@ -27,15 +34,9 @@ import torch.nn as nn
 from huggingface_hub import hf_hub_download
 from timm.utils import reparameterize_model
 
-# Setup logging
-logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
-logger = logging.getLogger(__name__)
-
 
 @dataclass
 class ExportConfig:
-    """Configuration for the export process."""
-
     batch_size: int = 2
     opset_version: int = 18
     config_files: tuple[str, ...] = (
@@ -47,8 +48,6 @@ class ExportConfig:
 
 
 class VisualWrapper(nn.Module):
-    """Wraps vision embedder for standard CLIP inference."""
-
     def __init__(self, model: nn.Module):
         super().__init__()
         self.model = model
@@ -58,8 +57,6 @@ class VisualWrapper(nn.Module):
 
 
 class TextWrapper(nn.Module):
-    """Wraps text embedder for standard CLIP inference."""
-
     def __init__(self, model: nn.Module):
         super().__init__()
         self.model = model
@@ -83,7 +80,7 @@ class HuggingFaceClient:
                 dest = self.output_dir / filename
                 shutil.copy(path, dest)
                 downloaded[filename] = dest
-                logger.info(f"✓ {filename} downloaded.")
+                logger.info(f"✓ {filename}")
             except Exception:
                 logger.warning(f"✗ {filename} (Missing)")
         return downloaded
@@ -137,7 +134,7 @@ class ModelManager:
 
 
 class ONNXExporter:
-    """Handles the actual conversion to ONNX format."""
+    """Handles the conversion to ONNX format."""
 
     def __init__(self, config: ExportConfig):
         self.config = config
@@ -150,6 +147,7 @@ class ONNXExporter:
             input_name: str,
             output_name: str,
     ) -> None:
+        model.eval()
         torch.onnx.export(
             model,
             dummy_input,
@@ -163,7 +161,7 @@ class ONNXExporter:
             opset_version=self.config.opset_version,
             do_constant_folding=True,
         )
-        logger.info(f"✓ Exported to {output_path}")
+        logger.info(f"✓ Exported ONNX '{output_path}'")
 
 
 def run_export(repo_id: str, base_output_dir: str) -> None:
@@ -218,8 +216,7 @@ def run_export(repo_id: str, base_output_dir: str) -> None:
         "input_ids",
         "text_embeddings",
     )
-
-    logger.info(f"\nSuccessfully finished! Files are in: {output_dir}")
+    logger.info(f"Done! Saved to: '{output_dir}'")
 
 
 def main():
