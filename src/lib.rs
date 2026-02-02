@@ -13,7 +13,7 @@
 //!
 //! 1. [Rust & Cargo](https://rust-lang.org/).
 //! 2. [uv](https://docs.astral.sh/uv/) - to generate ONNX files from `HuggingFace` models.
-//! 3. [onnxruntime](https://github.com/microsoft/onnxruntime) - It's linked dynamically.
+//! 3. [onnxruntime](https://github.com/microsoft/onnxruntime) - Linked dynamically.
 //!
 //! ## Usage
 //!
@@ -31,31 +31,56 @@
 //!
 //! Add `open_clip` to your `Cargo.toml`.
 //!
-//! ```rust,no_run
-//! use open_clip_inference::{VisionEmbedder, TextEmbedder};
-//! use image::ImageReader;
+//! ### Option 1: High-Level API (Convenience)
+//!
+//! Use the `Clip` struct to perform classification or image ranking.
+//!
+//! ```rust
+//! use open_clip_inference::Clip;
 //! use std::path::Path;
 //!
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! let model_id = "timm/MobileCLIP2-S2-OpenCLIP";
-//! let mut vision_embedder = VisionEmbedder::from_model_id(model_id)?;
-//! let mut text_embedder = TextEmbedder::from_model_id(model_id)?;
+//! let mut clip = Clip::from_model_id(model_id)?;
 //!
-//! // In a real app, load an image from path
-//! // let img = image::open(Path::new("assets/img/cat_face.jpg"))?;
-//! // For this doc test, we'll create a dummy image
-//! let img = image::DynamicImage::new_rgb8(224, 224);
+//! let img = image::open(Path::new("assets/img/cat_face.jpg")).expect("Failed to load image");
+//! let labels = &["cat", "dog"];
 //!
-//! let texts = &[
-//!     "A photo of a cat",
-//!     "A photo of a dog",
-//! ];
+//! let results = clip.classify(&img, labels)?;
+//! for (label, prob) in results {
+//!     println!("{}: {:.2}%", label, prob * 100.0);
+//! }
+//! # Ok(())
+//! # }
+//! ```
 //!
-//! let img_emb = vision_embedder.embed_image(&img)?;
-//! let text_embs = text_embedder.embed_texts(texts)?;
+//! ### Option 2: Individual text & vision embedders
 //!
+//! Use `VisionEmbedder` or `TextEmbedder` standalone for custom workflows.
+//!
+//! ```rust
+//! use open_clip_inference::{VisionEmbedder, TextEmbedder, Clip};
+//! use std::path::Path;
+//!
+//! # fn main() -> Result<(), Box<dyn std::error::Error>> {
+//! let model_id = "timm/MobileCLIP2-S2-OpenCLIP";
+//! let mut vision = VisionEmbedder::from_model_id(model_id)?;
+//! let mut text = TextEmbedder::from_model_id(model_id)?;
+//!
+//! let img = image::open(Path::new("assets/img/cat_face.jpg")).expect("Failed to load image");
+//! let img_emb = vision.embed_image(&img)?;
+//! let text_embs = text.embed_texts(&["cat", "dog"])?;
+//!
+//! // Raw dot product
 //! let similarities = text_embs.dot(&img_emb);
-//! println!("Similarities: {:?}", similarities);
+//!
+//! // Apply model scale and bias
+//! let scale = text.model_config.logit_scale.unwrap_or(1.0);
+//! let bias = text.model_config.logit_bias.unwrap_or(0.0);
+//! let logits: Vec<f32> = similarities.iter().map(|&s| s.mul_add(scale, bias)).collect();
+//!
+//! // Convert to probabilities
+//! let probs = Clip::softmax(&logits);
 //! # Ok(())
 //! # }
 //! ```

@@ -30,68 +30,58 @@ uv run pull_onnx.py --id "timm/MobileCLIP2-S2-OpenCLIP"
 
 ## Usage: Inference in Rust
 
-#### From `examples/basic.rs`
+### Option 1: `Clip` struct
 
-First, add `open_clip_inference` to your `Cargo.toml`.
+The `Clip` struct is built for ease of use, handling both vision and text together, with convenience functions for
+similarity rankings.
 
 ```rust
-use open_clip_inference::{VisionEmbedder, TextEmbedder};
+use open_clip_inference::Clip;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let model_id = "timm/MobileCLIP2-S2-OpenCLIP";
-    let mut vision_embedder = VisionEmbedder::from_model_id(model_id)?;
-    let mut text_embedder = TextEmbedder::from_model_id(model_id)?;
+    let mut clip = Clip::from_model_id(model_id)?;
 
     let img = image::open(Path::new("assets/img/cat_face.jpg"))?;
-    let texts = &[
-        "A photo of a cat",
-        "A photo of a dog",
-        "A photo of a beignet",
-    ];
+    let labels = &["cat", "dog", "beignet"];
 
-    let img_emb = vision_embedder.embed_image(&img)?;
-    let text_embs = text_embedder.embed_texts(texts)?;
+    let results = clip.classify(&img, labels)?;
 
-    let similarities = text_embs.dot(&img_emb);
-
-    // compute softmax on output similarities
-    let scale = text_embedder.model_config.logit_scale.unwrap_or(1.0);
-    let bias = text_embedder.model_config.logit_bias.unwrap_or(0.0);
-    let logits: Vec<f32> = similarities
-        .iter()
-        .map(|&s| s.mul_add(scale, bias))
-        .collect();
-
-    for (text, prob) in texts.iter().zip(softmax(&logits)) {
-        println!("{}: {:.2}%", text, prob * 100.0);
+    for (label, prob) in results {
+        println!("{}: {:.2}%", label, prob * 100.0);
     }
 
     Ok(())
 }
 ```
 
-### Output (cosine similarity scores)
+### Option 2: Individual vision & text embedders
 
-These values are pre-softmax similarity logits. They are not probabilities and appear less confident.
+Use `VisionEmbedder` or `TextEmbedder` standalone to just produce embeddings from images & text.
 
-```
-A photo of a cat: 0.38
-A photo of a dog: 0.32
-A photo of a beignet: 0.30
-```
+```rust
+use open_clip_inference::{VisionEmbedder, TextEmbedder, Clip};
 
-After applying softmax to the output, it looks better:
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let model_id = "timm/MobileCLIP2-S2-OpenCLIP";
+    let mut vision = VisionEmbedder::from_model_id(model_id)?;
+    let mut text = TextEmbedder::from_model_id(model_id)?;
 
-```
-A photo of a cat: 99.99%
-A photo of a dog: 0.01%
-A photo of a beignet: 0.00%
+    let img = image::open(Path::new("assets/img/cat_face.jpg"))?;
+    let img_emb = vision.embed_image(&img)?;
+    // Now you may put the embeddings in a database like Postgres with PgVector to set up semantic image search.
+    
+    let text_embs = text.embed_text("a cat")?;
+    // You can search with the text embedding through images using cosine similarity.
+    // All embeddings produced are already l2 normalized.
+
+    Ok(())
+}
 ```
 
 ## Examples
 
-Run the included examples (ensure you have exported the relevant model first, usually `timm/ViT-SO400M-16-SigLIP2-384`
-for the examples):
+Run the included examples (ensure you have exported the relevant model first):
 
 ```shell
 # Simple generic example
@@ -142,7 +132,7 @@ Then put the dll/so/dylib location in your `PATH`, or point the `ORT_DYLIB_PATH`
 * Adjust path to where the dll is.
 
 ```powershell
-$env:ORT_DYLIB_PATH = "C:/Apps/onnxruntime/lib/onnxruntime.dll"
+$env:ORT_DYLIB_PATH="C:/Apps/onnxruntime/lib/onnxruntime.dll"
 ```
 
 **Shell example:**

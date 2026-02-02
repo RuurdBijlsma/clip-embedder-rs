@@ -9,6 +9,7 @@ if ($PSVersionTable.PSVersion.Major -lt 5) { throw "PowerShell 5.1+ required." }
 # Environment Setup
 $env:CARGO_TERM_COLOR = "always"
 $env:RUSTFLAGS = "-Dwarnings"
+$env:ORT_DYLIB_PATH="C:/Apps/onnxruntime/lib/onnxruntime.dll"
 
 Write-Host "=== 1. Validating Environment ===" -ForegroundColor Cyan
 
