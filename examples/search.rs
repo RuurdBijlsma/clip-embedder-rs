@@ -42,7 +42,7 @@ fn main() -> Result<()> {
     println!(" - Inference completed in {:.2?}", start_inf.elapsed());
 
     // Display Results
-    println!(" - Search results");
+    println!(" - Search results\n");
     for (i, &(idx, prob)) in results.iter().enumerate() {
         let marker = if i == 0 { "★ " } else { "  " };
         println!("{} {:<20} | {:>6.2}", marker, valid_names[idx], prob * 100.);

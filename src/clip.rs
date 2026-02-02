@@ -76,7 +76,7 @@ impl Clip {
 
         let mut results: Vec<(String, f32)> = labels
             .iter()
-            .zip(probs.into_iter())
+            .zip(probs)
             .map(|(l, p)| (l.as_ref().to_string(), p))
             .collect();
 
@@ -86,7 +86,7 @@ impl Clip {
     }
 
     /// Rank a batch of images against a single text query.
-    /// Returns a list of (image_index, probability) pairs sorted by highest probability.
+    /// Returns a list of (`image_index`, `probability`) pairs sorted by highest probability.
     pub fn rank_images(
         &mut self,
         images: &[DynamicImage],
@@ -124,6 +124,7 @@ impl Clip {
     }
 
     /// Compute softmax probabilities for an array of logits.
+    #[must_use]
     pub fn softmax(logits: &[f32]) -> Vec<f32> {
         let max_logit = logits.iter().fold(f32::NEG_INFINITY, |a, &b| a.max(b));
         let exps: Vec<f32> = logits.iter().map(|&x| (x - max_logit).exp()).collect();
@@ -132,6 +133,7 @@ impl Clip {
     }
 
     /// Compute sigmoid probabilities for a single logit.
+    #[must_use]
     pub fn sigmoid(logit: f32) -> f32 {
         1.0 / (1.0 + (-logit).exp())
     }

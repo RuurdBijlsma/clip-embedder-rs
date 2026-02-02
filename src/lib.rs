@@ -62,14 +62,14 @@
 //!
 //! See the `examples/` directory for detailed usage.
 
+pub mod clip;
 pub mod config;
 pub mod error;
 pub mod onnx;
 pub mod text;
 pub mod vision;
-pub mod clip;
 
+pub use clip::Clip;
 pub use error::ClipError;
 pub use text::TextEmbedder;
 pub use vision::VisionEmbedder;
-pub use clip::Clip;
