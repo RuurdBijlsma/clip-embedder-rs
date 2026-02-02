@@ -1,4 +1,4 @@
-use crate::config::{OnnxModelConfig, OpenClipConfig};
+use crate::config::{ModelConfig, OpenClipConfig};
 use crate::error::ClipError;
 use crate::onnx::OnnxSession;
 use ndarray::Array2;
@@ -9,7 +9,7 @@ use tokenizers::{PaddingParams, PaddingStrategy, Tokenizer, TruncationParams};
 pub struct TextEmbedder {
     pub session: OnnxSession,
     pub config: OpenClipConfig,
-    pub model_config: OnnxModelConfig,
+    pub model_config: ModelConfig,
     tokenizer: Tokenizer,
     id_name: String,
     mask_name: Option<String>,
@@ -28,7 +28,7 @@ impl TextEmbedder {
         let tokenizer_path = model_dir.join("tokenizer.json");
         let model_config_path = model_dir.join("model_config.json");
 
-        let model_config = OnnxModelConfig::from_file(model_config_path)?;
+        let model_config = ModelConfig::from_file(model_config_path)?;
         let session = OnnxSession::new(model_path)?;
         let config = OpenClipConfig::from_file(config_path)?;
         let mut tokenizer = Tokenizer::from_file(tokenizer_path)
