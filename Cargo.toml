@@ -1,6 +1,6 @@
 [package]
 name = "open_clip_inference"
-version = "0.1.2"
+version = "0.1.3"
 edition = "2024"
 description = "Run OpenCLIP compatible embedding models via ONNX Runtime"
 repository = "https://github.com/RuurdBijlsma/open-clip-rs"
@@ -10,7 +10,7 @@ categories = ["computer-vision"]
 exclude = ["assets", "benches", "examples", "scripts", "tests"]
 
 [dependencies]
-ort = { version = "2.0.0-rc.11", features = ["ndarray", "load-dynamic"] }
+ort = { version = "2.0.0-rc.11", features = ["ndarray"] }
 ndarray = { version = "0.17.2", features = ["rayon"] }
 image = "0.25.9"
 tokenizers = { version = "0.22.2" }
