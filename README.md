@@ -40,7 +40,7 @@ use open_clip_inference::Clip;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let model_id = "timm/MobileCLIP2-S2-OpenCLIP";
-    let mut clip = Clip::from_model_id(model_id)?;
+    let mut clip = Clip::from_model_id(model_id).build()?;
 
     let img = image::open(Path::new("assets/img/cat_face.jpg"))?;
     let labels = &["cat", "dog", "beignet"];
@@ -64,8 +64,8 @@ use open_clip_inference::{VisionEmbedder, TextEmbedder, Clip};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let model_id = "timm/MobileCLIP2-S2-OpenCLIP";
-    let mut vision = VisionEmbedder::from_model_id(model_id)?;
-    let mut text = TextEmbedder::from_model_id(model_id)?;
+    let mut vision = VisionEmbedder::from_model_id(model_id).build()?;
+    let mut text = TextEmbedder::from_model_id(model_id).build()?;
 
     let img = image::open(Path::new("assets/img/cat_face.jpg"))?;
     let img_emb = vision.embed_image(&img)?;
@@ -93,8 +93,8 @@ cargo run --example search
 
 ## Tested Models
 
-The following models have been tested to work with `pull_onnx.py` & this Rust crate. I picked these models as they are
-highest performing in benchmarks or most popular on HuggingFace.
+The following models have been tested to work with `pull_onnx.py` & this Rust crate. I picked these models to test as
+they are highest performing in benchmarks or most popular on HuggingFace.
 
 * `timm/MobileCLIP2-S4-OpenCLIP`
 * `laion/CLIP-ViT-B-32-laion2B-s34B-b79K`

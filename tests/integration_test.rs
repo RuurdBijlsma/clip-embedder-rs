@@ -11,8 +11,8 @@ fn run_model_integration_test(
     model_id: &str,
     expected_dim: usize,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let mut vision_embedder = VisionEmbedder::from_model_id(model_id)?;
-    let mut text_embedder = TextEmbedder::from_model_id(model_id)?;
+    let mut vision_embedder = VisionEmbedder::from_model_id(model_id).build()?;
+    let mut text_embedder = TextEmbedder::from_model_id(model_id).build()?;
 
     // Test Vision Embedding
     let img_path = PathBuf::from("assets/img/beach_rocks.jpg");

@@ -1,8 +1,11 @@
 use crate::config::ModelConfig;
 use crate::error::ClipError;
+use crate::onnx::OnnxSession;
 use crate::text::TextEmbedder;
 use crate::vision::VisionEmbedder;
+use bon::bon;
 use image::DynamicImage;
+use ort::ep::ExecutionProviderDispatch;
 use std::path::Path;
 
 /// A convenience wrapper that holds both a `VisionEmbedder` and a `TextEmbedder`.
@@ -11,18 +14,32 @@ pub struct Clip {
     pub text: TextEmbedder,
 }
 
+#[bon]
 impl Clip {
     /// Load both Vision and Text embedders from a model ID in the default cache location.
-    pub fn from_model_id(model_id: &str) -> Result<Self, ClipError> {
-        let vision = VisionEmbedder::from_model_id(model_id)?;
-        let text = TextEmbedder::from_model_id(model_id)?;
-        Ok(Self { vision, text })
+    #[builder(finish_fn = build)]
+    pub fn from_model_id(
+        #[builder(start_fn)] model_id: &str,
+        with_execution_providers: Option<&[ExecutionProviderDispatch]>,
+    ) -> Result<Self, ClipError> {
+        let model_dir = OnnxSession::get_model_dir(model_id);
+        Self::from_model_dir(&model_dir)
+            .maybe_with_execution_providers(with_execution_providers)
+            .build()
     }
 
     /// Load both Vision and Text embedders from a specific directory.
-    pub fn new(model_dir: &Path) -> Result<Self, ClipError> {
-        let vision = VisionEmbedder::new(model_dir)?;
-        let text = TextEmbedder::new(model_dir)?;
+    #[builder(finish_fn = build)]
+    pub fn from_model_dir(
+        #[builder(start_fn)] model_dir: &Path,
+        with_execution_providers: Option<&[ExecutionProviderDispatch]>,
+    ) -> Result<Self, ClipError> {
+        let vision = VisionEmbedder::from_model_dir(model_dir)
+            .maybe_with_execution_providers(with_execution_providers)
+            .build()?;
+        let text = TextEmbedder::from_model_dir(model_dir)
+            .maybe_with_execution_providers(with_execution_providers)
+            .build()?;
         Ok(Self { vision, text })
     }
 

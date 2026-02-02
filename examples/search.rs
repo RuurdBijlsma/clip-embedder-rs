@@ -1,5 +1,6 @@
 use color_eyre::eyre::Result;
 use open_clip_inference::Clip;
+use ort::ep::{CUDA, CoreML, DirectML, TensorRT};
 use std::path::PathBuf;
 use std::time::Instant;
 
@@ -11,7 +12,14 @@ fn main() -> Result<()> {
     let start = Instant::now();
 
     let model_id = "timm/ViT-SO400M-16-SigLIP2-384";
-    let mut clip = Clip::from_model_id(model_id)?;
+    let mut embedder = Clip::from_model_id(model_id)
+        .with_execution_providers(&[
+            TensorRT::default().build(),
+            CUDA::default().build(),
+            DirectML::default().build(),
+            CoreML::default().build(),
+        ])
+        .build()?;
 
     println!(" - Loaded in {:.2?}", start.elapsed());
 
@@ -38,7 +46,7 @@ fn main() -> Result<()> {
 
     println!(" - Embedding {} images...", images.len());
     let start_inf = Instant::now();
-    let results = clip.rank_images(&images, query_text)?;
+    let results = embedder.rank_images(&images, query_text)?;
     println!(" - Inference completed in {:.2?}", start_inf.elapsed());
 
     // Display Results

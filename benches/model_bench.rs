@@ -1,6 +1,7 @@
 #![allow(clippy::significant_drop_tightening)]
 use criterion::{Criterion, criterion_group};
-use open_clip_inference::{TextEmbedder, VisionEmbedder};
+use open_clip_inference::Clip;
+use ort::ep::{CUDA, CoreML, DirectML, TensorRT};
 use std::path::PathBuf;
 
 const MODELS: &[&str] = &[
@@ -16,27 +17,32 @@ fn benchmark_models(c: &mut Criterion) {
     let text = "A photo of rocks";
 
     for model_id in MODELS {
-        let mut vision_embedder = VisionEmbedder::from_model_id(model_id)
-            .unwrap_or_else(|_| panic!("Failed to load vision embedder for {model_id}"));
-        let mut text_embedder = TextEmbedder::from_model_id(model_id)
-            .unwrap_or_else(|_| panic!("Failed to load text embedder for {model_id}"));
+        let mut embedder = Clip::from_model_id(model_id)
+            .with_execution_providers(&[
+                TensorRT::default().build(),
+                CUDA::default().build(),
+                DirectML::default().build(),
+                CoreML::default().build(),
+            ])
+            .build()
+            .expect("Failed to build CLIP embedder");
 
         let mut group = c.benchmark_group(*model_id);
         group.sample_size(20);
 
         // 1. Vision Preprocessing
         group.bench_function("vision/preprocess", |b| {
-            b.iter(|| vision_embedder.preprocess(&img));
+            b.iter(|| embedder.vision.preprocess(&img));
         });
 
         // 2. Vision Full Embedding (Preprocess + Inference)
         group.bench_function("vision/embed", |b| {
-            b.iter(|| vision_embedder.embed_image(&img));
+            b.iter(|| embedder.vision.embed_image(&img));
         });
 
         // 4. Text Full Embedding (Tokenize + Inference)
         group.bench_function("text/embed", |b| {
-            b.iter(|| text_embedder.embed_text(text));
+            b.iter(|| embedder.text.embed_text(text));
         });
 
         group.finish();
