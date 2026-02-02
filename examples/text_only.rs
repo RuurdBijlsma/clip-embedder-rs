@@ -1,6 +1,6 @@
 use color_eyre::Result;
 use open_clip_inference::TextEmbedder;
-use ort::ep::{CoreML, DirectML, TensorRT, CUDA};
+use ort::ep::{CUDA, CoreML, DirectML, TensorRT};
 use std::time::Instant;
 
 fn main() -> Result<()> {
