@@ -1,4 +1,4 @@
-use crate::config::{OnnxModelConfig, OpenClipConfig};
+use crate::config::{ModelConfig, OpenClipConfig};
 use crate::error::ClipError;
 use crate::onnx::OnnxSession;
 use image::{DynamicImage, GenericImageView, imageops::FilterType};
@@ -10,7 +10,7 @@ use std::path::Path;
 pub struct VisionEmbedder {
     pub session: OnnxSession,
     pub config: OpenClipConfig,
-    pub local_config: OnnxModelConfig,
+    pub local_config: ModelConfig,
     pub input_name: String,
 }
 
@@ -28,7 +28,7 @@ impl VisionEmbedder {
 
         let session = OnnxSession::new(model_path)?;
         let config = OpenClipConfig::from_file(config_path)?;
-        let local_config = OnnxModelConfig::from_file(local_config_path)?;
+        let local_config = ModelConfig::from_file(local_config_path)?;
 
         let input_name = session
             .find_input(&["pixel_values", "input"])
