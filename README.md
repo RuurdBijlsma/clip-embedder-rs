@@ -70,7 +70,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let img = image::open(Path::new("assets/img/cat_face.jpg"))?;
     let img_emb = vision.embed_image(&img)?;
     // Now you may put the embeddings in a database like Postgres with PgVector to set up semantic image search.
-    
+
     let text_embs = text.embed_text("a cat")?;
     // You can search with the text embedding through images using cosine similarity.
     // All embeddings produced are already l2 normalized.
@@ -120,7 +120,11 @@ Python implementations here: https://github.com/RuurdBijlsma/clip-model-research
 
 ## Troubleshooting
 
-### ONNX Runtime Library Not Found
+### If it doesn't build on Windows due to onnxruntime problems
+
+Try using the feature `load-dynamic` and point to the onnxruntime dll as described below.
+
+### [When using `load-dynamic` feature] ONNX Runtime Library Not Found
 
 Onnxruntime is dynamically loaded, so if it's not found correctly, then download the correct onnxruntime library
 from [GitHub Releases](http://github.com/microsoft/onnxruntime/releases).
