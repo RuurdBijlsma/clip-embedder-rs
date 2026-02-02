@@ -1,6 +1,6 @@
 [package]
 name = "open_clip_inference"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2024"
 description = "Run OpenCLIP compatible embedding models via ONNX Runtime"
 repository = "https://github.com/RuurdBijlsma/open-clip-rs"
@@ -19,6 +19,9 @@ thiserror = "2.0.18"
 num_cpus = "1.17.0"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.149"
+
+[features]
+load-dynamic = ["ort/load-dynamic"]
 
 [dev-dependencies]
 color-eyre = "0.6.5"
