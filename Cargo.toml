@@ -1,6 +1,6 @@
 [package]
 name = "open_clip_inference"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2024"
 description = "Run OpenCLIP compatible embedding models via ONNX Runtime"
 repository = "https://github.com/RuurdBijlsma/open-clip-rs"

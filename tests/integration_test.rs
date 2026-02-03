@@ -123,7 +123,7 @@ mod tests {
         assert!(*second_prob < 0.1);
 
         for (text, prob) in results {
-            println!("{}: {:.4}%", text, prob * 100.0);
+            println!("{}: {:.2}%", text, prob * 100.0);
         }
 
         Ok(())
