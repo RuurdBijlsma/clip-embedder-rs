@@ -37,6 +37,7 @@ logger.setLevel(logging.INFO)
 
 @dataclass
 class ExportConfig:
+    hf_username: str = "RuteNL"
     batch_size: int = 2
     opset_version: int = 18
     config_files: tuple[str, ...] = (
@@ -180,10 +181,49 @@ class ONNXExporter:
 
 
 def _modify_readme(readme_path: Path, repo_id: str) -> None:
+    parts = repo_id.split("/", 1)
+    if len(parts) == 2:
+        model_name = parts[1]
+    else:
+        model_name = repo_id
+    new_model_id = f"{ExportConfig.hf_username}/{model_name}-ONNX"
+
+    rust_code = f"""
+```rust
+use color_eyre::Result;
+use open_clip_inference::Clip;
+use std::path::Path;
+
+#[tokio::main]
+async fn main() -> Result<()> {{
+    color_eyre::install()?;
+    let model_id = "{new_model_id}";
+    let mut clip = Clip::from_hf(model_id).build().await?;
+
+    let img = image::open(Path::new("assets/img/cat_face.jpg")).expect("Failed to load image");
+    let texts = &[
+        "A photo of a cat",
+        "A photo of a dog",
+        "A photo of a beignet",
+    ];
+
+    let results = clip.classify(&img, texts)?;
+
+    for (text, prob) in results {{
+        println!("{{}}: {{:.4}}%", text, prob * 100.0);
+    }}
+
+    Ok(())
+}}
+```
+"""
+
     header = (
         f"# ONNX export of {repo_id}\n\n"
         f"This model is an export of [{repo_id}](https://huggingface.co/{repo_id}). "
-        "It is can be used with the [`open_clip_inference`](https://crates.io/crates/open_clip_inference) rust crate, or any other ONNX Runtime based implementation.\n\n"
+        "It can be used with the [`open_clip_inference`](https://crates.io/crates/open_clip_inference) rust crate, or any other ONNX Runtime based implementation.\n\n"
+        "## Usage with `open_clip_inference` in Rust: \n"
+        f"{rust_code}\n"
         "---\n"
     )
     with readme_path.open("r", encoding="utf-8") as f:
@@ -215,7 +255,6 @@ def _modify_readme(readme_path: Path, repo_id: str) -> None:
 
 def run_export(repo_id: str, base_output_dir: str) -> None:
     output_dir = Path(base_output_dir) / repo_id
-    output_dir.mkdir(parents=True, exist_ok=True)
 
     config = ExportConfig()
     hf_client = HuggingFaceClient(repo_id, output_dir)

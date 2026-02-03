@@ -103,18 +103,19 @@ mod tests {
             .await?;
 
         let img = image::open(Path::new("assets/img/cat_face.jpg")).expect("Failed to load image");
-        let match_text = "A photo of a cat";
-        let texts = &[
-            match_text,
-            "A photo of a dog",
-            "A photo of a beignet",
-        ];
+        let cat_text = "A photo of a cat";
+        let texts = &[cat_text, "A photo of a dog", "A photo of a beignet"];
 
         let results = embedder.classify(&img, texts)?;
 
-        let (best_tag, score) = results.first().unwrap();
-        assert_eq!(best_tag, match_text);
-        assert!(*score > 0.9);
+        // Check first result
+        let (best_tag, prob) = &results[0];
+        assert_eq!(best_tag, cat_text);
+        assert!(*prob > 0.99);
+
+        // Check second result
+        let (_second_tag, second_prob) = &results[1];
+        assert!(*second_prob < 0.1);
 
         for (text, prob) in results {
             println!("{}: {:.4}%", text, prob * 100.0);

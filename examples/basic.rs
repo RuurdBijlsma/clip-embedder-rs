@@ -1,10 +1,8 @@
-use color_eyre::Result;
 use open_clip_inference::Clip;
 use std::path::Path;
 
 #[tokio::main]
-async fn main() -> Result<()> {
-    color_eyre::install()?;
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let model_id = "RuteNL/MobileCLIP2-S2-OpenCLIP-ONNX";
     let mut clip = Clip::from_hf(model_id).build().await?;
 
@@ -18,7 +16,7 @@ async fn main() -> Result<()> {
     let results = clip.classify(&img, texts)?;
 
     for (text, prob) in results {
-        println!("{}: {:.4}%", text, prob * 100.0);
+        println!("{}: {:.2}", text, prob * 100.0);
     }
 
     Ok(())
