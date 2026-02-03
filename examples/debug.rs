@@ -5,6 +5,7 @@ use image::{ImageBuffer, Rgb};
 use ndarray::{Array4, ArrayView1, s};
 use open_clip_inference::config::OpenClipConfig;
 use open_clip_inference::{TextEmbedder, VisionEmbedder};
+use ort::ep::{CUDA, ExecutionProvider};
 use std::path::Path;
 
 fn get_stats(data: &ArrayView1<f32>) -> (f32, f32) {
@@ -36,11 +37,21 @@ fn save_debug_image(pix: &Array4<f32>, config: &OpenClipConfig, filename: &str) 
 fn main() -> Result<()> {
     color_eyre::install()?;
 
+    if CUDA::default().is_available()? {
+        println!("CUDA is available!");
+    } else {
+        println!("CUDA is NOT available");
+    }
+
     let img_path = Path::new("assets/img/beach_rocks.jpg");
 
     let model_id = "timm/ViT-SO400M-16-SigLIP2-384";
-    let mut vision_embedder = VisionEmbedder::from_model_id(model_id)?;
-    let mut text_embedder = TextEmbedder::from_model_id(model_id)?;
+    let mut vision_embedder = VisionEmbedder::from_model_id(model_id)
+        .with_execution_providers(&[CUDA::default().build().error_on_failure()])
+        .build()?;
+    let mut text_embedder = TextEmbedder::from_model_id(model_id)
+        .with_execution_providers(&[CUDA::default().build().error_on_failure()])
+        .build()?;
 
     let query_text = "A photo of Rocks";
     let img = image::open(img_path)?;

@@ -1,8 +1,10 @@
 use crate::config::{ModelConfig, OpenClipConfig};
 use crate::error::ClipError;
 use crate::onnx::OnnxSession;
+use bon::bon;
 use image::{DynamicImage, GenericImageView, imageops::FilterType};
 use ndarray::{Array2, Array4, ArrayView, Axis, IxDyn};
+use ort::ep::ExecutionProviderDispatch;
 use ort::value::Value;
 use rayon::prelude::*;
 use std::path::Path;
@@ -10,25 +12,37 @@ use std::path::Path;
 pub struct VisionEmbedder {
     pub session: OnnxSession,
     pub config: OpenClipConfig,
-    pub local_config: ModelConfig,
+    pub model_config: ModelConfig,
     pub input_name: String,
 }
 
+#[bon]
 impl VisionEmbedder {
-    pub fn from_model_id(model_id: &str) -> Result<Self, ClipError> {
+    #[builder(finish_fn = build)]
+    pub fn from_model_id(
+        #[builder(start_fn)] model_id: &str,
+        with_execution_providers: Option<&[ExecutionProviderDispatch]>,
+    ) -> Result<Self, ClipError> {
         let model_dir = OnnxSession::get_model_dir(model_id);
-        Self::new(&model_dir)
+        Self::from_model_dir(&model_dir)
+            .maybe_with_execution_providers(with_execution_providers)
+            .build()
     }
 
-    pub fn new(model_dir: &Path) -> Result<Self, ClipError> {
+    #[builder(finish_fn = build)]
+    pub fn from_model_dir(
+        #[builder(start_fn)] model_dir: &Path,
+        with_execution_providers: Option<&[ExecutionProviderDispatch]>,
+    ) -> Result<Self, ClipError> {
         OnnxSession::verify_model_dir(model_dir)?;
         let model_path = model_dir.join("visual.onnx");
         let config_path = model_dir.join("open_clip_config.json");
         let local_config_path = model_dir.join("model_config.json");
+        let execution_providers = with_execution_providers.unwrap_or_default();
 
-        let session = OnnxSession::new(model_path)?;
+        let session = OnnxSession::new(model_path, execution_providers)?;
         let config = OpenClipConfig::from_file(config_path)?;
-        let local_config = ModelConfig::from_file(local_config_path)?;
+        let model_config = ModelConfig::from_file(local_config_path)?;
 
         let input_name = session
             .find_input(&["pixel_values", "input"])
@@ -37,7 +51,7 @@ impl VisionEmbedder {
         Ok(Self {
             session,
             config,
-            local_config,
+            model_config,
             input_name,
         })
     }

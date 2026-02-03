@@ -1,4 +1,5 @@
 use crate::ClipError;
+use ort::ep::ExecutionProviderDispatch;
 use ort::session::{Session, builder::GraphOptimizationLevel};
 use std::env;
 use std::path::{Path, PathBuf};
@@ -8,9 +9,13 @@ pub struct OnnxSession {
 }
 
 impl OnnxSession {
-    pub fn new(path: impl AsRef<Path>) -> Result<Self, ClipError> {
+    pub fn new(
+        path: impl AsRef<Path>,
+        execution_providers: &[ExecutionProviderDispatch],
+    ) -> Result<Self, ClipError> {
         let threads = num_cpus::get();
         let session = Session::builder()?
+            .with_execution_providers(execution_providers)?
             .with_optimization_level(GraphOptimizationLevel::Level3)?
             .with_intra_threads(threads)?
             .commit_from_file(path)?;

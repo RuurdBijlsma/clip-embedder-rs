@@ -280,32 +280,6 @@ if ((Read-YesNoPrompt -prompt "`nAdd uncommitted changes (git diff)?" -default '
     }
 }
 
-# 5. Add OpenAPI Spec
-if (-not [string]::IsNullOrWhiteSpace($openApiUrl))
-{
-    if ((Read-YesNoPrompt -prompt "`nFetch and add OpenAPI spec from $openApiUrl?" -default 'n') -eq 'y')
-    {
-        try
-        {
-            Write-Host "Fetching OpenAPI spec..."
-            # Use Invoke-WebRequest to get the raw content
-            $apiSpecResponse = Invoke-WebRequest -Uri $openApiUrl -UseBasicParsing
-            $apiSpecJson = $apiSpecResponse.Content
-
-            $contextBuilder.AppendLine("## OpenAPI Specification") | Out-Null
-            $contextBuilder.AppendLine('```json') | Out-Null
-            $contextBuilder.AppendLine($apiSpecJson) | Out-Null
-            $contextBuilder.AppendLine('```') | Out-Null
-            $contextBuilder.AppendLine() | Out-Null
-            Write-Host "Added OpenAPI spec." -ForegroundColor Green
-        }
-        catch
-        {
-            Write-Warning "Failed to fetch OpenAPI spec: $_"
-        }
-    }
-}
-
 # --- Finalisation ---
 $finalContext = $contextBuilder.ToString()
 $finalContext | Set-Clipboard
