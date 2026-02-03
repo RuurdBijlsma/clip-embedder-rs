@@ -19,17 +19,7 @@ ONNX Runtime.
 2. (Optional) [uv](https://docs.astral.sh/uv/) - Only if you want to convert models from HuggingFace to ONNX.
 3. (Optional) If you have to link dynamically (on Windows) - [onnxruntime](https://github.com/microsoft/onnxruntime).
 
-## Usage: Export Model to ONNX
-
-Use the provided `pull_onnx.py` script to download and export any OpenCLIP model from Hugging Face.
-
-```shell
-# Run the export script - uv will handle the dependencies
-# Example: Export mobileclip 2
-uv run pull_onnx.py --id "timm/MobileCLIP2-S2-OpenCLIP"
-```
-
-## Usage: Inference in Rust
+## Usage: Embedding text & image
 
 ### Option 1: `Clip` struct
 
@@ -57,6 +47,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     Ok(())
 }
+```
+
+Input image: `Poekie`
+
+<img alt="Poeker" src="assets/img/cat_face.jpg" width="150" title="Poekie">
+
+Outputs:
+
+```
+A photo of a cat: 99.99%
+A photo of a dog: 0.01%
+A photo of a beignet: 0.00%
 ```
 
 ### Option 2: Individual vision & text embedders
@@ -95,34 +97,88 @@ cargo run --example basic
 cargo run --example search
 ```
 
-## Tested Models
+## Model support
 
-The following models have been tested to work with `pull_onnx.py` & this Rust crate. I picked these models to test as
-they are highest performing in benchmarks or most popular on HuggingFace.
+This crate is implemented with [`ort`](https://crates.io/crates/ort), it runs ONNX models. I've uploaded the following
+ONNX Clip Embedding models to HuggingFace:
 
-* `timm/MobileCLIP2-S4-OpenCLIP`
-* `laion/CLIP-ViT-B-32-laion2B-s34B-b79K`
-* `timm/ViT-SO400M-16-SigLIP2-384`
-* `timm/vit_base_patch32_clip_224.openai`
-* `microsoft/BiomedCLIP-PubMedBERT_256-vit_base_patch16_224`
-* `imageomics/bioclip`
-* `Marqo/marqo-fashionSigLIP`
-* `timm/PE-Core-bigG-14-448`
-* `timm/ViT-SO400M-14-SigLIP-384`
+* [RuteNL/ViT-SO400M-16-SigLIP2-384-ONNX](https://huggingface.co/RuteNL/ViT-SO400M-16-SigLIP2-384-ONNX)
+* [RuteNL/MobileCLIP2-S2-OpenCLIP-ONNX](https://huggingface.co/RuteNL/MobileCLIP2-S2-OpenCLIP-ONNX)
 
-todo: add converted & uploaded models list here
+If you need a model that hasn't been converted to ONNX on HuggingFace yet, you can easily convert [any open_clip
+compatible model](https://huggingface.co/models?pipeline_tag=zero-shot-image-classification&library=open_clip&sort=trending)
+yourself, using `pull_onnx.py` from this repo.
 
-### Verified Embeddings
+1. Make sure you have [uv](https://docs.astral.sh/uv/).
+2. Run `pull_onnx.py --id timm/vit_base_patch32_clip_224.openai`
+3. After the Python script is done, you can the following in your Rust code:
 
-The following models have been verified to produce embeddings in Rust that match the Python reference implementation:
+```
+let clip = Clip::from_local_id("timm/vit_base_patch32_clip_224.openai").build()?
+```
 
-Python implementations here: https://github.com/RuurdBijlsma/clip-model-research
+I've tested the following models to work with `pull_onnx.py` & this crate:
 
-* `timm/ViT-SO400M-16-SigLIP2-384`
-* `timm/MobileCLIP2-S4-OpenCLIP`
-* `timm/vit_base_patch32_clip_224.openai`
-* `timm/ViT-SO400M-14-SigLIP-384`
-* `Marqo/marqo-fashionSigLIP`
+* [timm/MobileCLIP2-S4-OpenCLIP](https://huggingface.co/timm/MobileCLIP2-S4-OpenCLIP) *
+* [timm/ViT-SO400M-16-SigLIP2-384](https://huggingface.co/timm/ViT-SO400M-16-SigLIP2-384) *
+* [timm/ViT-SO400M-14-SigLIP-384](https://huggingface.co/timm/ViT-SO400M-14-SigLIP-384) *
+* [timm/vit_base_patch32_clip_224.openai](https://huggingface.co/timm/vit_base_patch32_clip_224.openai) *
+* [Marqo/marqo-fashionSigLIP](https://huggingface.co/Marqo/marqo-fashionSigLIP) *
+* [laion/CLIP-ViT-B-32-laion2B-s34B-b79K](https://huggingface.co/laion/CLIP-ViT-B-32-laion2B-s34B-b79K)
+* [microsoft/BiomedCLIP-PubMedBERT_256-vit_base_patch16_224](https://huggingface.co/microsoft/BiomedCLIP-PubMedBERT_256-vit_base_patch16_224)
+* [imageomics/bioclip](https://huggingface.co/imageomics/bioclip)
+* [timm/PE-Core-bigG-14-448](https://huggingface.co/timm/PE-Core-bigG-14-448)
+
+`*` Verified equal embedding outputs compared
+to [reference Python implemenation](https://github.com/RuurdBijlsma/clip-model-research)
+
+## Execution Providers (Nvidia, AMD, Intel, Mac, Arm, etc.)
+
+Since this is implemented with `ort`, many execution providers are available to enable hardware acceleration. You can
+enable an execution provider in this crate with cargo features. A full list of execution providers is
+available [here](https://ort.pyke.io/perf/execution-providers). 
+
+To enable `cuda`, add the "cuda" feature,
+and pass the CUDA execution provider when creating the embedder:
+
+```rust
+use open_clip_inference::Clip;
+use ort::ep::{CUDA, CoreML, DirectML, TensorRT};
+use std::path::Path;
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let model_id = "RuteNL/MobileCLIP2-S2-OpenCLIP-ONNX";
+    // Execution providers can be passed to the Clip, TextEmbedder, and VisionEmbedder constructor builders.
+    // By default, an empty list is passed, which results in CPU inference.
+    // When multiple are passed, each execution provider is tried in order, if one doesn't work, the next one is tried, 
+    // until falling back to CPU with no options left.
+    let mut clip = Clip::from_hf(model_id)
+        .with_execution_providers(&[
+            TensorRT::default().build(),
+            CUDA::default().build(),
+            DirectML::default().build(),
+            CoreML::default().build(),
+        ])
+        .build()
+        .await?;
+
+    let img = image::open(Path::new("assets/img/cat_face.jpg")).expect("Failed to load image");
+    let texts = &[
+        "A photo of a cat",
+        "A photo of a dog",
+        "A photo of a beignet",
+    ];
+
+    let results = clip.classify(&img, texts)?;
+
+    for (text, prob) in results {
+        println!("{}: {:.2}", text, prob * 100.0);
+    }
+
+    Ok(())
+}
+```
 
 ## Troubleshooting
 
