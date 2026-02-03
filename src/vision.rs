@@ -78,8 +78,7 @@ impl VisionEmbedder {
     pub fn embed_image(&mut self, image: &DynamicImage) -> Result<ndarray::Array1<f32>, ClipError> {
         let embs = self.embed_images(std::slice::from_ref(image))?;
         let len = embs.len();
-        embs.into_shape_with_order(len)
-            .map_err(|e| ClipError::Inference(e.to_string()))
+        Ok(embs.into_shape_with_order(len)?)
     }
 
     /// Embed a batch of images
@@ -95,13 +94,9 @@ impl VisionEmbedder {
         let (shape, data) = outputs[0].try_extract_tensor::<f32>()?;
         #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
         let shape_usize: Vec<usize> = shape.iter().map(|&x| x as usize).collect();
-        let view = ArrayView::from_shape(IxDyn(&shape_usize), data)
-            .map_err(|e| ClipError::Inference(e.to_string()))?;
+        let view = ArrayView::from_shape(IxDyn(&shape_usize), data)?;
 
-        Ok(view
-            .into_dimensionality::<ndarray::Ix2>()
-            .map_err(|e| ClipError::Inference(e.to_string()))?
-            .to_owned())
+        Ok(view.into_dimensionality::<ndarray::Ix2>()?.to_owned())
     }
 
     /// Preprocess batch of images
