@@ -24,17 +24,17 @@ fn benchmark_models(c: &mut Criterion) {
         let mut group = c.benchmark_group(*model_id);
         group.sample_size(20);
 
-        // 1. Vision Preprocessing
+        // Vision Preprocessing
         group.bench_function("vision/preprocess", |b| {
             b.iter(|| vision_embedder.preprocess(&img));
         });
 
-        // 2. Vision Full Embedding (Preprocess + Inference)
+        // Vision Full Embedding (Preprocess + Inference)
         group.bench_function("vision/embed", |b| {
             b.iter(|| vision_embedder.embed_image(&img));
         });
 
-        // 4. Text Full Embedding (Tokenize + Inference)
+        // Text Full Embedding (Tokenize + Inference)
         group.bench_function("text/embed", |b| {
             b.iter(|| text_embedder.embed_text(text));
         });
