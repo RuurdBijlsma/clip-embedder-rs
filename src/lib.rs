@@ -141,8 +141,8 @@
 //! #
 //! # #[tokio::main]
 //! # async fn main() -> Result<(), Box<dyn std::error::Error>> {
-//! let clip = Clip::from_local_id("timm/vit_base_patch32_clip_224.openai").build()?
-//! #     Ok(())
+//! let clip = Clip::from_local_id("timm/vit_base_patch32_clip_224.openai").build()?;
+//! # Ok(())
 //! # }
 //! ```
 //!

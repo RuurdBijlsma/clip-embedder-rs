@@ -63,8 +63,7 @@ impl TextEmbedder {
         let model_config = ModelConfig::from_file(model_config_path)?;
         let session = OnnxSession::new(model_path, execution_providers)?;
         let config = OpenClipConfig::from_file(config_path)?;
-        let mut tokenizer = Tokenizer::from_file(tokenizer_path)
-            .map_err(|e| ClipError::Tokenizer(e.to_string()))?;
+        let mut tokenizer = Tokenizer::from_file(tokenizer_path)?;
 
         let pad_id = model_config
             .pad_id
@@ -81,8 +80,7 @@ impl TextEmbedder {
             .with_truncation(Some(TruncationParams {
                 max_length: ctx_len,
                 ..Default::default()
-            }))
-            .map_err(|e| ClipError::Tokenizer(e.to_string()))?;
+            }))?;
 
         let id_name = session
             .find_input(&["input_ids"])
@@ -110,8 +108,7 @@ impl TextEmbedder {
         } else {
             let texts = texts.iter().map(AsRef::as_ref).collect();
             self.tokenizer.encode_batch(texts, true)
-        }
-        .map_err(|e| ClipError::Tokenizer(e.to_string()))?;
+        }?;
 
         let batch_size = encodings.len();
         let seq_len = self.config.model_cfg.text_cfg.context_length;
@@ -125,10 +122,8 @@ impl TextEmbedder {
             .flat_map(|e| e.get_attention_mask().iter().map(|&x| i64::from(x)))
             .collect();
 
-        let ids_array = Array2::from_shape_vec((batch_size, seq_len), ids)
-            .map_err(|e| ClipError::Inference(e.to_string()))?;
-        let mask_array = Array2::from_shape_vec((batch_size, seq_len), mask)
-            .map_err(|e| ClipError::Inference(e.to_string()))?;
+        let ids_array = Array2::from_shape_vec((batch_size, seq_len), ids)?;
+        let mask_array = Array2::from_shape_vec((batch_size, seq_len), mask)?;
 
         Ok((ids_array, mask_array))
     }
@@ -137,8 +132,7 @@ impl TextEmbedder {
     pub fn embed_text(&mut self, text: &str) -> Result<ndarray::Array1<f32>, ClipError> {
         let embs = self.embed_texts(&[text])?;
         let len = embs.len();
-        embs.into_shape_with_order(len)
-            .map_err(|e| ClipError::Inference(e.to_string()))
+        Ok(embs.into_shape_with_order(len)?)
     }
 
     /// Embed a batch of texts
@@ -160,11 +154,7 @@ impl TextEmbedder {
         let (shape, data) = outputs[0].try_extract_tensor::<f32>()?;
         #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
         let shape_usize: Vec<usize> = shape.iter().map(|&x| x as usize).collect();
-        let view = ndarray::ArrayView::from_shape(ndarray::IxDyn(&shape_usize), data)
-            .map_err(|e| ClipError::Inference(e.to_string()))?;
-        Ok(view
-            .into_dimensionality::<ndarray::Ix2>()
-            .map_err(|e| ClipError::Inference(e.to_string()))?
-            .to_owned())
+        let view = ndarray::ArrayView::from_shape(ndarray::IxDyn(&shape_usize), data)?;
+        Ok(view.into_dimensionality::<ndarray::Ix2>()?.to_owned())
     }
 }

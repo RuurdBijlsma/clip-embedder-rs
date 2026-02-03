@@ -14,11 +14,13 @@ pub enum ClipError {
     #[error("Image error: {0}")]
     Image(#[from] image::ImageError),
     #[error("Tokenization error: {0}")]
-    Tokenizer(String),
+    Tokenizer(#[from] Box<dyn std::error::Error + Send + Sync>),
     #[error("Configuration error: {0}")]
     Config(String),
     #[error("Inference error: {0}")]
     Inference(String),
+    #[error("Shape error: {0}")]
+    Shape(#[from] ndarray::ShapeError),
     #[error("Model folder not found, generate it with `uv run pull_onnx.py -h`. '{0}'")]
     ModelFolderNotFound(PathBuf),
     #[cfg(feature = "hf-hub")]
