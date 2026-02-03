@@ -40,7 +40,7 @@ similarity rankings.
 use open_clip_inference::Clip;
 
 #[tokio::main]
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // model_id from Hugging Face (e.g. from RuteNL/MobileCLIP2-S2-OpenCLIP) -> This is a pre-converted model.
     // Use from_local_id or from_local_dir to supply a locally stored model, not on HuggingFace.
     let model_id = "RuteNL/MobileCLIP2-S2-OpenCLIP-ONNX";
@@ -67,7 +67,7 @@ Use `VisionEmbedder` or `TextEmbedder` standalone to just produce embeddings fro
 use open_clip_inference::{VisionEmbedder, TextEmbedder, Clip};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let model_id = "RuteNL/MobileCLIP2-S2-OpenCLIP";
+    let model_id = "timm/ViT-SO400M-16-SigLIP2-384";
     let mut vision = VisionEmbedder::from_model_id(model_id).build()?;
     let mut text = TextEmbedder::from_model_id(model_id).build()?;
 

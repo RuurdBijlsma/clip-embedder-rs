@@ -6,32 +6,18 @@
 //! ## Features
 //!
 //! - Run CLIP models in Rust via ONNX.
-//! - Should support [any model compatible with `open_clip`](https://huggingface.co/models?pipeline_tag=zero-shot-image-classification&library=open_clip&sort=trending) (Python).
-//! - Python is only needed once to download and export the model weights.
-//!
-//! ## Prerequisites
-//!
-//! 1. [Rust & Cargo](https://rust-lang.org/).
-//! 2. [uv](https://docs.astral.sh/uv/) - to generate ONNX files from `HuggingFace` models.
-//! 3. [onnxruntime](https://github.com/microsoft/onnxruntime) - Linked dynamically.
+//! - Should support [any model compatible with `open_clip`](https://huggingface.co/models?pipeline_tag=zero-shot-image-classification&library=open_clip&sort=trending).
+//! - Automatic model downloading: Just provide the Hugging Face model ID (has to point to HuggingFace repo with ONNX
+//!   files & `open_clip_config.json`).
+//!   - *Note*: This is enabled by default via the `hf-hub` feature. Disable it to remove `tokio` & `hf-hub` dependencies if you only need local model loading.
 //!
 //! ## Usage
 //!
-//! ### Step 1: Export Model to ONNX
+//! ### Embedding in Rust
 //!
-//! Use the provided `pull_onnx.py` script to download and export an `OpenCLIP` model from Hugging Face.
+//! Add `open_clip_inference` to your `Cargo.toml`.
 //!
-//! ```shell
-//! # Run the export script - uv will handle the dependencies
-//! # Example: Export mobileclip 2
-//! uv run pull_onnx.py --id "timm/MobileCLIP2-S2-OpenCLIP"
-//! ```
-//!
-//! ### Step 2: Inference in Rust
-//!
-//! Add `open_clip` to your `Cargo.toml`.
-//!
-//! ### Option 1: High-Level API (Convenience)
+//! ### Option 1: Combined vision & text `Clip` API
 //!
 //! Use the `Clip` struct to perform classification or image ranking.
 //!
@@ -57,7 +43,7 @@
 //!
 //! ### Option 2: Individual text & vision embedders
 //!
-//! Use `VisionEmbedder` or `TextEmbedder` standalone for custom workflows.
+//! Use `VisionEmbedder` or `TextEmbedder` standalone to reduce memory usage if you only need one or the other.
 //!
 //! ```rust
 //! use open_clip_inference::{VisionEmbedder, TextEmbedder, Clip};
