@@ -2,10 +2,11 @@ use color_eyre::Result;
 use open_clip_inference::Clip;
 use std::path::Path;
 
-fn main() -> Result<()> {
+#[tokio::main]
+async fn main() -> Result<()> {
     color_eyre::install()?;
-    let model_id = "timm/MobileCLIP2-S2-OpenCLIP";
-    let mut clip = Clip::from_model_id(model_id).build()?;
+    let model_id = "RuteNL/MobileCLIP2-S2-OpenCLIP-ONNX";
+    let mut clip = Clip::from_hf(model_id).build().await?;
 
     let img = image::open(Path::new("assets/img/cat_face.jpg")).expect("Failed to load image");
     let texts = &[

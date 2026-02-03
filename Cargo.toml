@@ -20,7 +20,7 @@ num_cpus = "1.17.0"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.149"
 bon = "3.8.2"
-hf-hub = "0.4.3"
+hf-hub = { version = "0.4.3", features = ["tokio"] }
 
 [features]
 default = ["download-binaries", "copy-dylibs"]
@@ -51,6 +51,7 @@ azure = ["ort/azure"]
 [dev-dependencies]
 color-eyre = "0.6.5"
 criterion = { version = "0.8.1", features = ["html_reports"] }
+tokio = "1.49.0"
 
 [[bench]]
 name = "model_bench"

@@ -1,3 +1,4 @@
+use hf_hub::api::tokio::ApiError;
 use std::path::PathBuf;
 use thiserror::Error;
 
@@ -21,4 +22,12 @@ pub enum ClipError {
     ModelFolderNotFound(PathBuf),
     #[error("Hugging Face Hub error: {0}")]
     HfHub(String),
+    #[error("Missing model file '{file}' in folder '{model_dir}'")]
+    MissingModelFile { model_dir: PathBuf, file: String },
+}
+
+impl From<ApiError> for ClipError {
+    fn from(value: ApiError) -> Self {
+        Self::HfHub(value.to_string())
+    }
 }

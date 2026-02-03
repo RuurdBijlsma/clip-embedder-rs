@@ -1,5 +1,7 @@
 use crate::config::ModelConfig;
 use crate::error::ClipError;
+use crate::model_manager;
+use crate::model_manager::get_default_base_folder;
 use crate::text::TextEmbedder;
 use crate::vision::VisionEmbedder;
 use bon::bon;
@@ -15,31 +17,42 @@ pub struct Clip {
 
 #[bon]
 impl Clip {
-    /// Load both Vision and Text embedders from a model ID
-    ///
-    /// todo: we need new constructor method, something like from_preconverted(, and from_local_converted? idk sounds dumb
+    /// Load both vision and text embedders from a HuggingFace model ID
     #[builder(finish_fn = build)]
-    pub fn from_model_id(
+    pub async fn from_hf(
         #[builder(start_fn)] model_id: &str,
         with_execution_providers: Option<&[ExecutionProviderDispatch]>,
     ) -> Result<Self, ClipError> {
-        let model_dir = crate::download::ensure_model(model_id)?;
-        dbg!(&model_dir);
-        Self::from_model_dir(&model_dir)
+        let model_dir = model_manager::get_hf_model(model_id).await?;
+        Self::from_local_dir(&model_dir)
             .maybe_with_execution_providers(with_execution_providers)
             .build()
     }
 
-    /// Load both Vision and Text embedders from a specific directory
+    /// Load both vision and text embedders from a locally converted model ID
     #[builder(finish_fn = build)]
-    pub fn from_model_dir(
+    pub fn from_local_id(
+        #[builder(start_fn)] model_id: &str,
+        base_folder: Option<&Path>,
+        with_execution_providers: Option<&[ExecutionProviderDispatch]>,
+    ) -> Result<Self, ClipError> {
+        let base_folder = base_folder.map_or_else(get_default_base_folder, ToOwned::to_owned);
+        Self::from_local_dir(&base_folder.join(model_id))
+            .maybe_with_execution_providers(with_execution_providers)
+            .build()
+    }
+
+    /// Load both vision and text embedders from a specific directory
+    #[builder(finish_fn = build)]
+    pub fn from_local_dir(
         #[builder(start_fn)] model_dir: &Path,
         with_execution_providers: Option<&[ExecutionProviderDispatch]>,
     ) -> Result<Self, ClipError> {
-        let vision = VisionEmbedder::from_model_dir(model_dir)
+        model_manager::verify_model_dir(model_dir)?;
+        let vision = VisionEmbedder::from_local_dir(model_dir)
             .maybe_with_execution_providers(with_execution_providers)
             .build()?;
-        let text = TextEmbedder::from_model_dir(model_dir)
+        let text = TextEmbedder::from_local_dir(model_dir)
             .maybe_with_execution_providers(with_execution_providers)
             .build()?;
         Ok(Self { vision, text })
