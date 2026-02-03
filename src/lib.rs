@@ -39,7 +39,8 @@
 //! use open_clip_inference::Clip;
 //! use std::path::Path;
 //!
-//! # fn main() -> Result<(), Box<dyn std::error::Error>> {
+//! # #[tokio::main]
+//! # async fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! let model_id = "RuteNL/MobileCLIP2-S2-OpenCLIP-ONNX";
 //! let mut clip = Clip::from_hf(model_id).build().await?;
 //!
