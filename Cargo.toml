@@ -1,6 +1,6 @@
 [package]
 name = "open_clip_inference"
-version = "0.1.1"
+version = "0.1.4"
 edition = "2024"
 description = "Run OpenCLIP compatible embedding models via ONNX Runtime"
 repository = "https://github.com/RuurdBijlsma/open-clip-rs"
@@ -10,7 +10,7 @@ categories = ["computer-vision"]
 exclude = ["assets", "benches", "examples", "scripts", "tests"]
 
 [dependencies]
-ort = { version = "2.0.0-rc.11", features = ["ndarray", "load-dynamic"] }
+ort = { version = "2.0.0-rc.11", features = ["ndarray"] }
 ndarray = { version = "0.17.2", features = ["rayon"] }
 image = "0.25.9"
 tokenizers = { version = "0.22.2" }
@@ -19,6 +19,33 @@ thiserror = "2.0.18"
 num_cpus = "1.17.0"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.149"
+bon = "3.8.2"
+
+[features]
+default = ["download-binaries", "copy-dylibs"]
+download-binaries = ["ort/download-binaries"]
+copy-dylibs = ["ort/copy-dylibs"]
+load-dynamic = ["ort/load-dynamic"]
+# ort execution providers
+cuda = ["ort/cuda"]
+tensorrt = ["ort/tensorrt"]
+nvrtx = ["ort/nvrtx"]
+xnnpack = ["ort/xnnpack"]
+webgpu = ["ort/webgpu"]
+directml = ["ort/directml"]
+coreml = ["ort/coreml"]
+migraphx = ["ort/migraphx"]
+openvino = ["ort/openvino"]
+onednn = ["ort/onednn"]
+qnn = ["ort/qnn"]
+cann = ["ort/cann"]
+nnapi = ["ort/nnapi"]
+tvm = ["ort/tvm"]
+acl = ["ort/acl"]
+armnn = ["ort/armnn"]
+vitis = ["ort/vitis"]
+rknpu = ["ort/rknpu"]
+azure = ["ort/azure"]
 
 [dev-dependencies]
 color-eyre = "0.6.5"
