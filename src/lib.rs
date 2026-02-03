@@ -121,12 +121,12 @@
 //! ## Model support
 //!
 //! This crate is implemented with [`ort`](https://crates.io/crates/ort), it runs ONNX models. I've uploaded the following
-//! ONNX Clip Embedding models to HuggingFace:
+//! ONNX Clip Embedding models to `HuggingFace`:
 //!
 //! * [RuteNL/ViT-SO400M-16-SigLIP2-384-ONNX](https://huggingface.co/RuteNL/ViT-SO400M-16-SigLIP2-384-ONNX)
 //! * [RuteNL/MobileCLIP2-S2-OpenCLIP-ONNX](https://huggingface.co/RuteNL/MobileCLIP2-S2-OpenCLIP-ONNX)
 //!
-//! If you need a model that hasn't been converted to ONNX on HuggingFace yet, you can easily convert [any open_clip
+//! If you need a model that hasn't been converted to ONNX on `HuggingFace` yet, you can easily convert [any open_clip
 //! compatible model](https://huggingface.co/models?pipeline_tag=zero-shot-image-classification&library=open_clip&sort=trending)
 //! yourself, using `pull_onnx.py` from this repo.
 //!
@@ -134,8 +134,16 @@
 //! 2. Run `pull_onnx.py --id timm/vit_base_patch32_clip_224.openai`
 //! 3. After the Python script is done, you can the following in your Rust code:
 //!
-//! ```
+//! ```rust
+//! # use open_clip_inference::Clip;
+//! # use ort::ep::{CUDA, CoreML, DirectML, TensorRT};
+//! # use std::path::Path;
+//! #
+//! # #[tokio::main]
+//! # async fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! let clip = Clip::from_local_id("timm/vit_base_patch32_clip_224.openai").build()?
+//! #     Ok(())
+//! # }
 //! ```
 //!
 //! I've tested the following models to work with `pull_onnx.py` & this crate:
