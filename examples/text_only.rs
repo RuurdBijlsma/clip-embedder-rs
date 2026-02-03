@@ -3,17 +3,19 @@ use open_clip_inference::TextEmbedder;
 use ort::ep::{CUDA, CoreML, DirectML, TensorRT};
 use std::time::Instant;
 
-fn main() -> Result<()> {
+#[tokio::main]
+async fn main() -> Result<()> {
     color_eyre::install()?;
-    let model_id = "timm/ViT-SO400M-16-SigLIP2-384";
-    let mut embedder = TextEmbedder::from_model_id(model_id)
+    let model_id = "RuteNL/MobileCLIP2-S2-OpenCLIP-ONNX";
+    let mut embedder = TextEmbedder::from_hf(model_id)
         .with_execution_providers(&[
             TensorRT::default().build(),
             CUDA::default().build(),
             DirectML::default().build(),
             CoreML::default().build(),
         ])
-        .build()?;
+        .build()
+        .await?;
 
     let texts = vec![
         "Some beachy rocks",

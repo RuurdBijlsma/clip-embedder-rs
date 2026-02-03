@@ -4,22 +4,23 @@ use ort::ep::{CUDA, CoreML, DirectML, TensorRT};
 use std::path::PathBuf;
 use std::time::Instant;
 
-fn main() -> Result<()> {
+#[tokio::main]
+async fn main() -> Result<()> {
     color_eyre::install()?;
 
     let img_dir = PathBuf::from("assets/img".to_owned());
     println!(" - Loading Embedders...");
     let start = Instant::now();
 
-    let model_id = "timm/ViT-SO400M-16-SigLIP2-384";
-    let mut embedder = Clip::from_model_id(model_id)
+    let mut embedder = Clip::from_hf("RuteNL/MobileCLIP2-S2-OpenCLIP-ONNX")
         .with_execution_providers(&[
             TensorRT::default().build(),
             CUDA::default().build(),
             DirectML::default().build(),
             CoreML::default().build(),
         ])
-        .build()?;
+        .build()
+        .await?;
 
     println!(" - Loaded in {:.2?}", start.elapsed());
 

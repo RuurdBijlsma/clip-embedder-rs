@@ -1,6 +1,7 @@
 use crate::config::ModelConfig;
 use crate::error::ClipError;
-use crate::onnx::OnnxSession;
+use crate::model_manager;
+use crate::model_manager::get_default_base_folder;
 use crate::text::TextEmbedder;
 use crate::vision::VisionEmbedder;
 use bon::bon;
@@ -16,28 +17,43 @@ pub struct Clip {
 
 #[bon]
 impl Clip {
-    /// Load both Vision and Text embedders from a model ID in the default cache location.
+    /// Load both vision and text embedders from a `HuggingFace` model ID
+    #[cfg(feature = "hf-hub")]
     #[builder(finish_fn = build)]
-    pub fn from_model_id(
+    pub async fn from_hf(
         #[builder(start_fn)] model_id: &str,
         with_execution_providers: Option<&[ExecutionProviderDispatch]>,
     ) -> Result<Self, ClipError> {
-        let model_dir = OnnxSession::get_model_dir(model_id);
-        Self::from_model_dir(&model_dir)
+        let model_dir = model_manager::get_hf_model(model_id).await?;
+        Self::from_local_dir(&model_dir)
             .maybe_with_execution_providers(with_execution_providers)
             .build()
     }
 
-    /// Load both Vision and Text embedders from a specific directory.
+    /// Load both vision and text embedders from a locally converted model ID
     #[builder(finish_fn = build)]
-    pub fn from_model_dir(
+    pub fn from_local_id(
+        #[builder(start_fn)] model_id: &str,
+        base_folder: Option<&Path>,
+        with_execution_providers: Option<&[ExecutionProviderDispatch]>,
+    ) -> Result<Self, ClipError> {
+        let base_folder = base_folder.map_or_else(get_default_base_folder, ToOwned::to_owned);
+        Self::from_local_dir(&base_folder.join(model_id))
+            .maybe_with_execution_providers(with_execution_providers)
+            .build()
+    }
+
+    /// Load both vision and text embedders from a specific directory
+    #[builder(finish_fn = build)]
+    pub fn from_local_dir(
         #[builder(start_fn)] model_dir: &Path,
         with_execution_providers: Option<&[ExecutionProviderDispatch]>,
     ) -> Result<Self, ClipError> {
-        let vision = VisionEmbedder::from_model_dir(model_dir)
+        model_manager::verify_model_dir(model_dir)?;
+        let vision = VisionEmbedder::from_local_dir(model_dir)
             .maybe_with_execution_providers(with_execution_providers)
             .build()?;
-        let text = TextEmbedder::from_model_dir(model_dir)
+        let text = TextEmbedder::from_local_dir(model_dir)
             .maybe_with_execution_providers(with_execution_providers)
             .build()?;
         Ok(Self { vision, text })
@@ -140,7 +156,7 @@ impl Clip {
         Ok(results)
     }
 
-    /// Compute softmax probabilities for an array of logits.
+    /// Compute softmax probabilities for an array of logits
     #[must_use]
     pub fn softmax(logits: &[f32]) -> Vec<f32> {
         let max_logit = logits.iter().fold(f32::NEG_INFINITY, |a, &b| a.max(b));
@@ -149,7 +165,7 @@ impl Clip {
         exps.iter().map(|&x| x / sum).collect()
     }
 
-    /// Compute sigmoid probabilities for a single logit.
+    /// Compute sigmoid probabilities for a single logit
     #[must_use]
     pub fn sigmoid(logit: f32) -> f32 {
         1.0 / (1.0 + (-logit).exp())

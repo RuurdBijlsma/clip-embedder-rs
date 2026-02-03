@@ -37,6 +37,7 @@ logger.setLevel(logging.INFO)
 
 @dataclass
 class ExportConfig:
+    hf_username: str = "RuteNL"
     batch_size: int = 2
     opset_version: int = 18
     config_files: tuple[str, ...] = (
@@ -44,6 +45,8 @@ class ExportConfig:
         "tokenizer.json",
         "tokenizer_config.json",
         "special_tokens_map.json",
+        "README.md",
+        ".gitattributes",
     )
 
 
@@ -122,8 +125,8 @@ class ModelManager:
             raise ValueError("Could not determine vocab_size.") from e
 
     def get_model_config(
-        self,
-        raw_config: dict[str, Any],
+            self,
+            raw_config: dict[str, Any],
     ) -> dict[str, str | int | float | bool]:
         model_cfg = raw_config.get("model_cfg", {})
         is_siglip = "siglip" in self.repo_id.lower() or "init_logit_bias" in model_cfg
@@ -153,12 +156,12 @@ class ONNXExporter:
         self.config = config
 
     def export(
-        self,
-        model: nn.Module,
-        dummy_input: torch.Tensor,
-        output_path: Path,
-        input_name: str,
-        output_name: str,
+            self,
+            model: nn.Module,
+            dummy_input: torch.Tensor,
+            output_path: Path,
+            input_name: str,
+            output_name: str,
     ) -> None:
         model.eval()
         torch.onnx.export(
@@ -177,9 +180,81 @@ class ONNXExporter:
         logger.info(f"✓ Exported ONNX '{output_path}'")
 
 
+def _modify_readme(readme_path: Path, repo_id: str) -> None:
+    parts = repo_id.split("/", 1)
+    if len(parts) == 2:
+        model_name = parts[1]
+    else:
+        model_name = repo_id
+    new_model_id = f"{ExportConfig.hf_username}/{model_name}-ONNX"
+
+    rust_code = f"""
+```rust
+use color_eyre::Result;
+use open_clip_inference::Clip;
+use std::path::Path;
+
+#[tokio::main]
+async fn main() -> Result<()> {{
+    color_eyre::install()?;
+    let model_id = "{new_model_id}";
+    let mut clip = Clip::from_hf(model_id).build().await?;
+
+    let img = image::open(Path::new("assets/img/cat_face.jpg")).expect("Failed to load image");
+    let texts = &[
+        "A photo of a cat",
+        "A photo of a dog",
+        "A photo of a beignet",
+    ];
+
+    let results = clip.classify(&img, texts)?;
+
+    for (text, prob) in results {{
+        println!("{{}}: {{:.4}}%", text, prob * 100.0);
+    }}
+
+    Ok(())
+}}
+```
+"""
+
+    header = (
+        f"# ONNX export of {repo_id}\n\n"
+        f"This model is an export of [{repo_id}](https://huggingface.co/{repo_id}). "
+        "It can be used with the [`open_clip_inference`](https://crates.io/crates/open_clip_inference) rust crate, or any other ONNX Runtime based implementation.\n\n"
+        "## Usage with `open_clip_inference` in Rust: \n"
+        f"{rust_code}\n"
+        "---\n"
+    )
+    with readme_path.open("r", encoding="utf-8") as f:
+        content = f.read()
+
+    if content.startswith("---"):
+        parts = content.split("---", 2)
+        if len(parts) >= 3:
+            frontmatter = parts[1]
+            # Remove any library_name lines
+            frontmatter_lines = [
+                line for line in frontmatter.splitlines()
+                if not line.strip().startswith("library_name:")
+            ]
+            frontmatter = "\n".join(frontmatter_lines).strip("\n")
+            new_content = (
+                f"---\n{frontmatter}\n---\n\n"
+                f"{header}\n"
+                f"{parts[2].lstrip()}"
+            )
+        else:
+            new_content = header + content
+    else:
+        new_content = header + content
+
+    with readme_path.open("w", encoding="utf-8") as f:
+        f.write(new_content)
+
+
 def run_export(repo_id: str, base_output_dir: str) -> None:
     output_dir = Path(base_output_dir) / repo_id
-    output_dir.mkdir(parents=True, exist_ok=True)
 
     config = ExportConfig()
     hf_client = HuggingFaceClient(repo_id, output_dir)
@@ -188,6 +263,9 @@ def run_export(repo_id: str, base_output_dir: str) -> None:
 
     # Configs
     paths = hf_client.download_configs(config.config_files)
+
+    if "README.md" in paths:
+        _modify_readme(paths["README.md"], repo_id)
     if "open_clip_config.json" not in paths:
         raise FileNotFoundError("Could not find open_clip_config.json for metadata.")
     with Path.open(paths["open_clip_config.json"]) as f:
@@ -238,7 +316,7 @@ def main() -> None:
         type=str,
         required=True,
         help="HuggingFace repository ID (e.g., 'timm/ViT-SO400M-16-SigLIP2-384'). "
-        "Must be open_clip compatible",
+             "Must be open_clip compatible",
     )
     parser.add_argument(
         "--output",

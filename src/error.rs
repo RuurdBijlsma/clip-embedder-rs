@@ -1,3 +1,5 @@
+#[cfg(feature = "hf-hub")]
+use hf_hub::api::tokio::ApiError;
 use std::path::PathBuf;
 use thiserror::Error;
 
@@ -19,4 +21,16 @@ pub enum ClipError {
     Inference(String),
     #[error("Model folder not found, generate it with `uv run pull_onnx.py -h`. '{0}'")]
     ModelFolderNotFound(PathBuf),
+    #[cfg(feature = "hf-hub")]
+    #[error("Hugging Face Hub error: {0}")]
+    HfHub(String),
+    #[error("Missing model file '{file}' in folder '{model_dir}'")]
+    MissingModelFile { model_dir: PathBuf, file: String },
+}
+
+#[cfg(feature = "hf-hub")]
+impl From<ApiError> for ClipError {
+    fn from(value: ApiError) -> Self {
+        Self::HfHub(value.to_string())
+    }
 }

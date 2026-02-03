@@ -1,8 +1,7 @@
 use crate::ClipError;
 use ort::ep::ExecutionProviderDispatch;
 use ort::session::{Session, builder::GraphOptimizationLevel};
-use std::env;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 pub struct OnnxSession {
     pub session: Session,
@@ -38,22 +37,5 @@ impl OnnxSession {
             }
         }
         None
-    }
-
-    /// Get model directory by `model_id`
-    #[must_use]
-    pub fn get_model_dir(model_id: &str) -> PathBuf {
-        let base_folder = env::home_dir().map_or_else(
-            || Path::new(".open_clip_cache").to_owned(),
-            |p| p.join(".cache/open_clip_rs"),
-        );
-        base_folder.join(model_id)
-    }
-
-    pub fn verify_model_dir(model_dir: &Path) -> Result<(), ClipError> {
-        if !model_dir.exists() {
-            return Err(ClipError::ModelFolderNotFound(model_dir.to_owned()));
-        }
-        Ok(())
     }
 }

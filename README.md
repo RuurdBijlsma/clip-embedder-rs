@@ -9,18 +9,19 @@ ONNX Runtime.
 - Should support [any model compatible with
   `open_clip`](https://huggingface.co/models?pipeline_tag=zero-shot-image-classification&library=open_clip&sort=trending) (
   Python).
-- Python is only needed once to download and export the model weights.
+- Automatic model downloading: Just provide the Hugging Face model ID (has to point to HuggingFace repo with ONNX
+  files & `open_clip_config.json`).
+- Python is only needed if you want to convert new models yourself.
 
 ## Prerequisites
 
 1. [Rust & Cargo](https://rust-lang.org/).
-2. [uv](https://docs.astral.sh/uv/) - to generate ONNX files from HuggingFace models.
-3. [onnxruntime](https://github.com/microsoft/onnxruntime) - It's linked dynamically as I had issues with static
-   linking.
+2. (Optional) [uv](https://docs.astral.sh/uv/) - Only if you want to convert models from HuggingFace to ONNX.
+3. (Optional) If you have to link dynamically (on Windows) - [onnxruntime](https://github.com/microsoft/onnxruntime).
 
 ## Usage: Export Model to ONNX
 
-Use the provided `pull_onnx.py` script to download and export an OpenCLIP model from Hugging Face.
+Use the provided `pull_onnx.py` script to download and export any OpenCLIP model from Hugging Face.
 
 ```shell
 # Run the export script - uv will handle the dependencies
@@ -38,9 +39,12 @@ similarity rankings.
 ```rust
 use open_clip_inference::Clip;
 
+#[tokio::main]
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let model_id = "timm/MobileCLIP2-S2-OpenCLIP";
-    let mut clip = Clip::from_model_id(model_id).build()?;
+    // model_id from Hugging Face (e.g. from RuteNL/MobileCLIP2-S2-OpenCLIP) -> This is a pre-converted model.
+    // Use from_local_id or from_local_dir to supply a locally stored model, not on HuggingFace.
+    let model_id = "RuteNL/MobileCLIP2-S2-OpenCLIP-ONNX";
+    let mut clip = Clip::from_hf(model_id).build().await?;
 
     let img = image::open(Path::new("assets/img/cat_face.jpg"))?;
     let labels = &["cat", "dog", "beignet"];
@@ -63,7 +67,7 @@ Use `VisionEmbedder` or `TextEmbedder` standalone to just produce embeddings fro
 use open_clip_inference::{VisionEmbedder, TextEmbedder, Clip};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let model_id = "timm/MobileCLIP2-S2-OpenCLIP";
+    let model_id = "RuteNL/MobileCLIP2-S2-OpenCLIP";
     let mut vision = VisionEmbedder::from_model_id(model_id).build()?;
     let mut text = TextEmbedder::from_model_id(model_id).build()?;
 
@@ -106,6 +110,8 @@ they are highest performing in benchmarks or most popular on HuggingFace.
 * `timm/PE-Core-bigG-14-448`
 * `timm/ViT-SO400M-14-SigLIP-384`
 
+todo: add converted & uploaded models list here
+
 ### Verified Embeddings
 
 The following models have been verified to produce embeddings in Rust that match the Python reference implementation:
@@ -126,7 +132,7 @@ Try using the feature `load-dynamic` and point to the onnxruntime dll as describ
 
 ### [When using `load-dynamic` feature] ONNX Runtime Library Not Found
 
-Onnxruntime is dynamically loaded, so if it's not found correctly, then download the correct onnxruntime library
+OnnxRuntime is dynamically loaded, so if it's not found correctly, then download the correct onnxruntime library
 from [GitHub Releases](http://github.com/microsoft/onnxruntime/releases).
 
 Then put the dll/so/dylib location in your `PATH`, or point the `ORT_DYLIB_PATH` env var to it.
@@ -136,7 +142,7 @@ Then put the dll/so/dylib location in your `PATH`, or point the `ORT_DYLIB_PATH`
 * Adjust path to where the dll is.
 
 ```powershell
-$env:ORT_DYLIB_PATH="C:/Apps/onnxruntime/lib/onnxruntime.dll"
+$env:ORT_DYLIB_PATH = "C:/Apps/onnxruntime/lib/onnxruntime.dll"
 ```
 
 **Shell example:**

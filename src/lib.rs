@@ -39,9 +39,10 @@
 //! use open_clip_inference::Clip;
 //! use std::path::Path;
 //!
-//! # fn main() -> Result<(), Box<dyn std::error::Error>> {
-//! let model_id = "timm/MobileCLIP2-S2-OpenCLIP";
-//! let mut clip = Clip::from_model_id(model_id).build()?;
+//! # #[tokio::main]
+//! # async fn main() -> Result<(), Box<dyn std::error::Error>> {
+//! let model_id = "RuteNL/MobileCLIP2-S2-OpenCLIP-ONNX";
+//! let mut clip = Clip::from_hf(model_id).build().await?;
 //!
 //! let img = image::open(Path::new("assets/img/cat_face.jpg")).expect("Failed to load image");
 //! let labels = &["cat", "dog"];
@@ -64,8 +65,8 @@
 //!
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! let model_id = "timm/MobileCLIP2-S2-OpenCLIP";
-//! let mut vision = VisionEmbedder::from_model_id(model_id).build()?;
-//! let mut text = TextEmbedder::from_model_id(model_id).build()?;
+//! let mut vision = VisionEmbedder::from_local_id(model_id).build()?;
+//! let mut text = TextEmbedder::from_local_id(model_id).build()?;
 //!
 //! let img = image::open(Path::new("assets/img/cat_face.jpg")).expect("Failed to load image");
 //! let img_emb = vision.embed_image(&img)?;
@@ -90,6 +91,7 @@
 pub mod clip;
 pub mod config;
 pub mod error;
+pub mod model_manager;
 pub mod onnx;
 pub mod text;
 pub mod vision;

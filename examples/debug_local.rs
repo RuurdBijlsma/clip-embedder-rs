@@ -34,7 +34,8 @@ fn save_debug_image(pix: &Array4<f32>, config: &OpenClipConfig, filename: &str) 
     Ok(())
 }
 
-fn main() -> Result<()> {
+#[tokio::main]
+async fn main() -> Result<()> {
     color_eyre::install()?;
 
     if CUDA::default().is_available()? {
@@ -46,10 +47,10 @@ fn main() -> Result<()> {
     let img_path = Path::new("assets/img/beach_rocks.jpg");
 
     let model_id = "timm/ViT-SO400M-16-SigLIP2-384";
-    let mut vision_embedder = VisionEmbedder::from_model_id(model_id)
+    let mut vision_embedder = VisionEmbedder::from_local_id(model_id)
         .with_execution_providers(&[CUDA::default().build().error_on_failure()])
         .build()?;
-    let mut text_embedder = TextEmbedder::from_model_id(model_id)
+    let mut text_embedder = TextEmbedder::from_local_id(model_id)
         .with_execution_providers(&[CUDA::default().build().error_on_failure()])
         .build()?;
 

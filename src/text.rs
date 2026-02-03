@@ -1,5 +1,7 @@
 use crate::config::{ModelConfig, OpenClipConfig};
 use crate::error::ClipError;
+use crate::model_manager;
+use crate::model_manager::get_default_base_folder;
 use crate::onnx::OnnxSession;
 use bon::bon;
 use ndarray::Array2;
@@ -19,23 +21,39 @@ pub struct TextEmbedder {
 
 #[bon]
 impl TextEmbedder {
+    /// Load vision embedder from a `HuggingFace` model ID
     #[builder(finish_fn = build)]
-    pub fn from_model_id(
+    #[cfg(feature = "hf-hub")]
+    pub async fn from_hf(
         #[builder(start_fn)] model_id: &str,
         with_execution_providers: Option<&[ExecutionProviderDispatch]>,
     ) -> Result<Self, ClipError> {
-        let model_dir = OnnxSession::get_model_dir(model_id);
-        Self::from_model_dir(&model_dir)
+        let model_dir = model_manager::get_hf_model(model_id).await?;
+        Self::from_local_dir(&model_dir)
             .maybe_with_execution_providers(with_execution_providers)
             .build()
     }
 
+    /// Load text embedder from a locally converted model ID
     #[builder(finish_fn = build)]
-    pub fn from_model_dir(
+    pub fn from_local_id(
+        #[builder(start_fn)] model_id: &str,
+        base_folder: Option<&Path>,
+        with_execution_providers: Option<&[ExecutionProviderDispatch]>,
+    ) -> Result<Self, ClipError> {
+        let base_folder = base_folder.map_or_else(get_default_base_folder, ToOwned::to_owned);
+        Self::from_local_dir(&base_folder.join(model_id))
+            .maybe_with_execution_providers(with_execution_providers)
+            .build()
+    }
+
+    /// Load text embedder from a specific directory
+    #[builder(finish_fn = build)]
+    pub fn from_local_dir(
         #[builder(start_fn)] model_dir: &Path,
         with_execution_providers: Option<&[ExecutionProviderDispatch]>,
     ) -> Result<Self, ClipError> {
-        OnnxSession::verify_model_dir(model_dir)?;
+        model_manager::verify_model_dir(model_dir)?;
         let model_path = model_dir.join("text.onnx");
         let config_path = model_dir.join("open_clip_config.json");
         let tokenizer_path = model_dir.join("tokenizer.json");
@@ -81,6 +99,7 @@ impl TextEmbedder {
         })
     }
 
+    /// Tokenize a batch of texts
     pub fn tokenize<T: AsRef<str>>(
         &self,
         texts: &[T],
@@ -114,6 +133,7 @@ impl TextEmbedder {
         Ok((ids_array, mask_array))
     }
 
+    /// Embed a single text
     pub fn embed_text(&mut self, text: &str) -> Result<ndarray::Array1<f32>, ClipError> {
         let embs = self.embed_texts(&[text])?;
         let len = embs.len();
@@ -121,6 +141,7 @@ impl TextEmbedder {
             .map_err(|e| ClipError::Inference(e.to_string()))
     }
 
+    /// Embed a batch of texts
     pub fn embed_texts<T: AsRef<str>>(&mut self, texts: &[T]) -> Result<Array2<f32>, ClipError> {
         let (ids_tensor, mask_tensor) = self.tokenize(texts)?;
 
