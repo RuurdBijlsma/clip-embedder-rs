@@ -190,13 +190,11 @@ def _modify_readme(readme_path: Path, repo_id: str) -> None:
 
     rust_code = f"""
 ```rust
-use color_eyre::Result;
 use open_clip_inference::Clip;
 use std::path::Path;
 
 #[tokio::main]
-async fn main() -> Result<()> {{
-    color_eyre::install()?;
+async fn main() -> Result<(), Box<dyn std::error::Error>> {{
     let model_id = "{new_model_id}";
     let mut clip = Clip::from_hf(model_id).build().await?;
 
