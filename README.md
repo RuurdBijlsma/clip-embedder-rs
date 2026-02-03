@@ -39,11 +39,12 @@ similarity rankings.
 ```rust
 use open_clip_inference::Clip;
 
+#[tokio::main]
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // model_id from Hugging Face (e.g. from RuteNL/MobileCLIP2-S2-OpenCLIP) -> This is a pre-converted model.
-    // If files are missing locally, they will be downloaded automatically.
-    let model_id = "RuteNL/MobileCLIP2-S2-OpenCLIP";
-    let mut clip = Clip::from_model_id(model_id).build()?;
+    // Use from_local_id or from_local_dir to supply a locally stored model, not on HuggingFace.
+    let model_id = "RuteNL/MobileCLIP2-S2-OpenCLIP-ONNX";
+    let mut clip = Clip::from_hf(model_id).build().await?;
 
     let img = image::open(Path::new("assets/img/cat_face.jpg"))?;
     let labels = &["cat", "dog", "beignet"];

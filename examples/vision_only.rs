@@ -4,7 +4,6 @@ use ort::ep::{CUDA, CoreML, DirectML, TensorRT};
 use std::path::PathBuf;
 use std::time::Instant;
 
-#[cfg(feature = "hf-hub")]
 #[tokio::main]
 async fn main() -> Result<()> {
     color_eyre::install()?;

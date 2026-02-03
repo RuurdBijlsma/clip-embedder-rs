@@ -3,7 +3,6 @@ use open_clip_inference::TextEmbedder;
 use ort::ep::{CUDA, CoreML, DirectML, TensorRT};
 use std::time::Instant;
 
-#[cfg(feature = "hf-hub")]
 #[tokio::main]
 async fn main() -> Result<()> {
     color_eyre::install()?;

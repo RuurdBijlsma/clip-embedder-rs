@@ -1,7 +1,6 @@
 use open_clip_inference::Clip;
 use std::path::Path;
 
-#[cfg(feature = "hf-hub")]
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let model_id = "RuteNL/MobileCLIP2-S2-OpenCLIP-ONNX";
