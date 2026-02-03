@@ -19,4 +19,6 @@ pub enum ClipError {
     Inference(String),
     #[error("Model folder not found, generate it with `uv run pull_onnx.py -h`. '{0}'")]
     ModelFolderNotFound(PathBuf),
+    #[error("Hugging Face Hub error: {0}")]
+    HfHub(String),
 }

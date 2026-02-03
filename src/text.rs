@@ -19,17 +19,19 @@ pub struct TextEmbedder {
 
 #[bon]
 impl TextEmbedder {
+    /// Load text embedder from a model ID
     #[builder(finish_fn = build)]
     pub fn from_model_id(
         #[builder(start_fn)] model_id: &str,
         with_execution_providers: Option<&[ExecutionProviderDispatch]>,
     ) -> Result<Self, ClipError> {
-        let model_dir = OnnxSession::get_model_dir(model_id);
+        let model_dir = crate::download::ensure_model(model_id)?;
         Self::from_model_dir(&model_dir)
             .maybe_with_execution_providers(with_execution_providers)
             .build()
     }
 
+    /// Load text embedder from a specific directory
     #[builder(finish_fn = build)]
     pub fn from_model_dir(
         #[builder(start_fn)] model_dir: &Path,
@@ -81,6 +83,7 @@ impl TextEmbedder {
         })
     }
 
+    /// Tokenize a batch of texts
     pub fn tokenize<T: AsRef<str>>(
         &self,
         texts: &[T],
@@ -114,6 +117,7 @@ impl TextEmbedder {
         Ok((ids_array, mask_array))
     }
 
+    /// Embed a single text
     pub fn embed_text(&mut self, text: &str) -> Result<ndarray::Array1<f32>, ClipError> {
         let embs = self.embed_texts(&[text])?;
         let len = embs.len();
@@ -121,6 +125,7 @@ impl TextEmbedder {
             .map_err(|e| ClipError::Inference(e.to_string()))
     }
 
+    /// Embed a batch of texts
     pub fn embed_texts<T: AsRef<str>>(&mut self, texts: &[T]) -> Result<Array2<f32>, ClipError> {
         let (ids_tensor, mask_tensor) = self.tokenize(texts)?;
 

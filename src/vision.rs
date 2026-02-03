@@ -18,17 +18,19 @@ pub struct VisionEmbedder {
 
 #[bon]
 impl VisionEmbedder {
+    /// Load vision embedder from a model ID
     #[builder(finish_fn = build)]
     pub fn from_model_id(
         #[builder(start_fn)] model_id: &str,
         with_execution_providers: Option<&[ExecutionProviderDispatch]>,
     ) -> Result<Self, ClipError> {
-        let model_dir = OnnxSession::get_model_dir(model_id);
+        let model_dir = crate::download::ensure_model(model_id)?;
         Self::from_model_dir(&model_dir)
             .maybe_with_execution_providers(with_execution_providers)
             .build()
     }
 
+    /// Load vision embedder from a specific directory
     #[builder(finish_fn = build)]
     pub fn from_model_dir(
         #[builder(start_fn)] model_dir: &Path,

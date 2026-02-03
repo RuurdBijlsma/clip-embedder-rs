@@ -50,6 +50,7 @@ impl OnnxSession {
         base_folder.join(model_id)
     }
 
+    /// Verify that the model directory exists
     pub fn verify_model_dir(model_dir: &Path) -> Result<(), ClipError> {
         if !model_dir.exists() {
             return Err(ClipError::ModelFolderNotFound(model_dir.to_owned()));

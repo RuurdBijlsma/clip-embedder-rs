@@ -1,6 +1,5 @@
 use crate::config::ModelConfig;
 use crate::error::ClipError;
-use crate::onnx::OnnxSession;
 use crate::text::TextEmbedder;
 use crate::vision::VisionEmbedder;
 use bon::bon;
@@ -16,19 +15,22 @@ pub struct Clip {
 
 #[bon]
 impl Clip {
-    /// Load both Vision and Text embedders from a model ID in the default cache location.
+    /// Load both Vision and Text embedders from a model ID
+    ///
+    /// todo: we need new constructor method, something like from_preconverted(, and from_local_converted? idk sounds dumb
     #[builder(finish_fn = build)]
     pub fn from_model_id(
         #[builder(start_fn)] model_id: &str,
         with_execution_providers: Option<&[ExecutionProviderDispatch]>,
     ) -> Result<Self, ClipError> {
-        let model_dir = OnnxSession::get_model_dir(model_id);
+        let model_dir = crate::download::ensure_model(model_id)?;
+        dbg!(&model_dir);
         Self::from_model_dir(&model_dir)
             .maybe_with_execution_providers(with_execution_providers)
             .build()
     }
 
-    /// Load both Vision and Text embedders from a specific directory.
+    /// Load both Vision and Text embedders from a specific directory
     #[builder(finish_fn = build)]
     pub fn from_model_dir(
         #[builder(start_fn)] model_dir: &Path,
@@ -140,7 +142,7 @@ impl Clip {
         Ok(results)
     }
 
-    /// Compute softmax probabilities for an array of logits.
+    /// Compute softmax probabilities for an array of logits
     #[must_use]
     pub fn softmax(logits: &[f32]) -> Vec<f32> {
         let max_logit = logits.iter().fold(f32::NEG_INFINITY, |a, &b| a.max(b));
@@ -149,7 +151,7 @@ impl Clip {
         exps.iter().map(|&x| x / sum).collect()
     }
 
-    /// Compute sigmoid probabilities for a single logit.
+    /// Compute sigmoid probabilities for a single logit
     #[must_use]
     pub fn sigmoid(logit: f32) -> f32 {
         1.0 / (1.0 + (-logit).exp())

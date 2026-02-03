@@ -89,6 +89,7 @@
 
 pub mod clip;
 pub mod config;
+pub mod download;
 pub mod error;
 pub mod onnx;
 pub mod text;

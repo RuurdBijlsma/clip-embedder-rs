@@ -11,8 +11,7 @@ fn main() -> Result<()> {
     println!(" - Loading Embedders...");
     let start = Instant::now();
 
-    let model_id = "timm/ViT-SO400M-16-SigLIP2-384";
-    let mut embedder = Clip::from_model_id(model_id)
+    let mut embedder = Clip::from_model_id("RuteNL/MobileCLIP2-S2-OpenCLIP")
         .with_execution_providers(&[
             TensorRT::default().build(),
             CUDA::default().build(),
