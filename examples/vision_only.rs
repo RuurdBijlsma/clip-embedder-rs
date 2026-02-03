@@ -4,6 +4,7 @@ use ort::ep::{CUDA, CoreML, DirectML, TensorRT};
 use std::path::PathBuf;
 use std::time::Instant;
 
+#[cfg(feature = "hf-hub")]
 #[tokio::main]
 async fn main() -> Result<()> {
     color_eyre::install()?;
@@ -15,7 +16,8 @@ async fn main() -> Result<()> {
             DirectML::default().build(),
             CoreML::default().build(),
         ])
-        .build().await?;
+        .build()
+        .await?;
 
     let img_dir = PathBuf::from("assets/img".to_owned());
     let image_files = vec![

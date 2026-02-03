@@ -1,6 +1,6 @@
 [package]
 name = "open_clip_inference"
-version = "0.1.4"
+version = "0.2.0"
 edition = "2024"
 description = "Run OpenCLIP compatible embedding models via ONNX Runtime"
 repository = "https://github.com/RuurdBijlsma/open-clip-rs"
@@ -20,10 +20,11 @@ num_cpus = "1.17.0"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.149"
 bon = "3.8.2"
-hf-hub = { version = "0.4.3", features = ["tokio"] }
+hf-hub = { version = "0.4.3", features = ["tokio"], optional = true }
 
 [features]
-default = ["download-binaries", "copy-dylibs"]
+default = ["download-binaries", "copy-dylibs", "hf-hub"]
+hf-hub = ["dep:hf-hub"]
 download-binaries = ["ort/download-binaries"]
 copy-dylibs = ["ort/copy-dylibs"]
 load-dynamic = ["ort/load-dynamic"]

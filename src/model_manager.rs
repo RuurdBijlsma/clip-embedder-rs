@@ -1,4 +1,5 @@
 use crate::error::ClipError;
+#[cfg(feature = "hf-hub")]
 use hf_hub::api::tokio::Api;
 use std::env;
 use std::path::{Path, PathBuf};
@@ -17,6 +18,7 @@ pub const MODEL_FILES: &[&str] = &[
 ];
 
 /// Ensures that the model files are present locally.
+#[cfg(feature = "hf-hub")]
 pub async fn get_hf_model(model_id: &str) -> Result<PathBuf, ClipError> {
     // Try Hugging Face Hub
     let api = Api::new()?;

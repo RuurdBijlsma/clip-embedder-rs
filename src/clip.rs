@@ -17,7 +17,8 @@ pub struct Clip {
 
 #[bon]
 impl Clip {
-    /// Load both vision and text embedders from a HuggingFace model ID
+    /// Load both vision and text embedders from a `HuggingFace` model ID
+    #[cfg(feature = "hf-hub")]
     #[builder(finish_fn = build)]
     pub async fn from_hf(
         #[builder(start_fn)] model_id: &str,

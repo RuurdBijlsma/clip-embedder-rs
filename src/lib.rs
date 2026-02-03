@@ -89,8 +89,8 @@
 
 pub mod clip;
 pub mod config;
-pub mod model_manager;
 pub mod error;
+pub mod model_manager;
 pub mod onnx;
 pub mod text;
 pub mod vision;

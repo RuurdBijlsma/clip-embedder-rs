@@ -3,6 +3,7 @@ use open_clip_inference::TextEmbedder;
 use ort::ep::{CUDA, CoreML, DirectML, TensorRT};
 use std::time::Instant;
 
+#[cfg(feature = "hf-hub")]
 #[tokio::main]
 async fn main() -> Result<()> {
     color_eyre::install()?;
@@ -14,7 +15,8 @@ async fn main() -> Result<()> {
             DirectML::default().build(),
             CoreML::default().build(),
         ])
-        .build().await?;
+        .build()
+        .await?;
 
     let texts = vec![
         "Some beachy rocks",

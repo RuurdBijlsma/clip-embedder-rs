@@ -1,8 +1,12 @@
 #[cfg(test)]
 mod tests {
     use color_eyre::Result;
-    use open_clip_inference::{Clip, TextEmbedder, VisionEmbedder};
-    use std::path::{Path, PathBuf};
+    #[cfg(feature = "hf-hub")]
+    use open_clip_inference::Clip;
+    use open_clip_inference::{TextEmbedder, VisionEmbedder};
+    #[cfg(feature = "hf-hub")]
+    use std::path::Path;
+    use std::path::PathBuf;
 
     const LAION_MODEL_ID: &str = "laion/CLIP-ViT-B-32-laion2B-s34B-b79K";
     const OPENAI_MODEL_ID: &str = "timm/vit_base_patch32_clip_224.openai";
@@ -96,6 +100,7 @@ mod tests {
         run_model_integration_test(SIGLIP2_MODEL_ID, 1152)
     }
 
+    #[cfg(feature = "hf-hub")]
     #[tokio::test]
     async fn test_hf() -> Result<()> {
         let mut embedder = Clip::from_hf("RuteNL/MobileCLIP2-S2-OpenCLIP-ONNX")

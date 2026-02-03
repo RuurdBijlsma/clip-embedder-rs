@@ -21,8 +21,9 @@ pub struct TextEmbedder {
 
 #[bon]
 impl TextEmbedder {
-    /// Load vision embedder from a HuggingFace model ID
+    /// Load vision embedder from a `HuggingFace` model ID
     #[builder(finish_fn = build)]
+    #[cfg(feature = "hf-hub")]
     pub async fn from_hf(
         #[builder(start_fn)] model_id: &str,
         with_execution_providers: Option<&[ExecutionProviderDispatch]>,

@@ -4,7 +4,7 @@ use crate::model_manager;
 use crate::model_manager::get_default_base_folder;
 use crate::onnx::OnnxSession;
 use bon::bon;
-use image::{imageops::FilterType, DynamicImage, GenericImageView};
+use image::{DynamicImage, GenericImageView, imageops::FilterType};
 use ndarray::{Array2, Array4, ArrayView, Axis, IxDyn};
 use ort::ep::ExecutionProviderDispatch;
 use ort::value::Value;
@@ -20,8 +20,9 @@ pub struct VisionEmbedder {
 
 #[bon]
 impl VisionEmbedder {
-    /// Load vision embedder from a HuggingFace model ID
+    /// Load vision embedder from a `HuggingFace` model ID
     #[builder(finish_fn = build)]
+    #[cfg(feature = "hf-hub")]
     pub async fn from_hf(
         #[builder(start_fn)] model_id: &str,
         with_execution_providers: Option<&[ExecutionProviderDispatch]>,
