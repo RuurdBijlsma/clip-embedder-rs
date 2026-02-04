@@ -74,6 +74,7 @@ class HuggingFaceClient:
     def __init__(self, repo_id: str, output_dir: Path) -> None:
         self.repo_id = repo_id
         self.output_dir = output_dir
+        self.output_dir.mkdir(parents=True, exist_ok=True)
 
     def download_configs(self, files: tuple[str, ...]) -> dict[str, Path]:
         downloaded = {}
