@@ -83,9 +83,9 @@ impl TextEmbedder {
             }))?;
 
         let id_name = session
-            .find_input(&["input_ids"])
+            .find_input(&["input_ids"])?
             .ok_or_else(|| ClipError::Config("Could not find text input node".into()))?;
-        let mask_name = session.find_input(&["attention_mask"]);
+        let mask_name = session.find_input(&["attention_mask"])?;
 
         Ok(Self {
             session,
@@ -136,23 +136,19 @@ impl TextEmbedder {
     }
 
     /// Embed a batch of texts
-    ///
-    /// # Panics
-    /// Panics if the session lock is poisoned.
     #[allow(clippy::significant_drop_tightening)]
     pub fn embed_texts<T: AsRef<str>>(&self, texts: &[T]) -> Result<Array2<f32>, ClipError> {
         let (ids_tensor, mask_tensor) = self.tokenize(texts)?;
 
         let ort_ids = Value::from_array(ids_tensor)?;
         let array = {
-            let mut session = self.session.session.write().unwrap();
+            let mut session = self.session.session.write()?;
             let outputs = if let Some(m_name) = &self.mask_name {
                 let ort_mask = Value::from_array(mask_tensor)?;
                 session.run(ort::inputs![&self.id_name => ort_ids, m_name => ort_mask])?
             } else {
                 session.run(ort::inputs![&self.id_name => ort_ids])?
             };
-
             let (shape, data) = outputs[0].try_extract_tensor::<f32>()?;
             #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
             let shape_usize: Vec<usize> = shape.iter().map(|&x| x as usize).collect();

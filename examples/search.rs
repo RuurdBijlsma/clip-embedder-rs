@@ -12,7 +12,7 @@ async fn main() -> Result<()> {
     println!(" - Loading Embedders...");
     let start = Instant::now();
 
-    let embedder = Clip::from_hf("RuteNL/MobileCLIP2-S2-OpenCLIP-ONNX")
+    let embedder = Clip::from_hf("RuteNL/ViT-SO400M-16-SigLIP2-384-ONNX")
         .with_execution_providers(&[
             TensorRT::default().build(),
             CUDA::default().build(),
@@ -48,7 +48,7 @@ async fn main() -> Result<()> {
     println!(" - Embedding {} images...", images.len());
     let start_inf = Instant::now();
     let results = embedder.rank_images(&images, query_text)?;
-    println!(" - Inference completed in {:.2?}", start_inf.elapsed());
+    println!(" - Image ranking completed in {:.2?}", start_inf.elapsed());
 
     // Display Results
     println!(" - Search results\n");

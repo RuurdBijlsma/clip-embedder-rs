@@ -26,27 +26,19 @@ impl OnnxSession {
     }
 
     /// Helper to check if the model expects a specific input name
-    ///
-    /// # Panics
-    /// Panics if the session lock is poisoned.
-    #[must_use]
-    pub fn has_input(&self, name: &str) -> bool {
-        let session = self.session.read().unwrap();
-        session.inputs().iter().any(|i| i.name() == name)
+    pub fn has_input(&self, name: &str) -> Result<bool, ClipError> {
+        let session = self.session.read()?;
+        Ok(session.inputs().iter().any(|i| i.name() == name))
     }
 
     /// Helper to find the first likely input name for a specific role
-    ///
-    /// # Panics
-    /// Panics if the session lock is poisoned.
-    #[must_use]
-    pub fn find_input(&self, possibilities: &[&str]) -> Option<String> {
-        let session = self.session.read().unwrap();
+    pub fn find_input(&self, possibilities: &[&str]) -> Result<Option<String>, ClipError> {
+        let session = self.session.read()?;
         for &p in possibilities {
             if session.inputs().iter().any(|i| i.name() == p) {
-                return Some(p.to_string());
+                return Ok(Some(p.to_string()));
             }
         }
-        None
+        Ok(None)
     }
 }

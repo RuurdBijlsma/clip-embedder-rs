@@ -63,7 +63,7 @@ impl VisionEmbedder {
         let model_config = ModelConfig::from_file(local_config_path)?;
 
         let input_name = session
-            .find_input(&["pixel_values", "input"])
+            .find_input(&["pixel_values", "input"])?
             .ok_or_else(|| ClipError::Config("Could not find vision input node".to_string()))?;
 
         Ok(Self {
@@ -82,23 +82,18 @@ impl VisionEmbedder {
     }
 
     /// Embed a batch of images
-    ///
-    /// # Panics
-    /// Panics if the session lock is poisoned.
     #[allow(clippy::significant_drop_tightening)]
     pub fn embed_images(&self, images: &[DynamicImage]) -> Result<Array2<f32>, ClipError> {
         let batch_tensor = self.preprocess_batch(images)?;
 
         let input_tensor = Value::from_array(batch_tensor)?;
         let array = {
-            let mut session = self.session.session.write().unwrap();
+            let mut session = self.session.session.write()?;
             let outputs = session.run(ort::inputs![&self.input_name => input_tensor])?;
-
             let (shape, data) = outputs[0].try_extract_tensor::<f32>()?;
             #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
             let shape_usize: Vec<usize> = shape.iter().map(|&x| x as usize).collect();
             let view = ArrayView::from_shape(IxDyn(&shape_usize), data)?;
-
             view.into_dimensionality::<ndarray::Ix2>()?.to_owned()
         };
 
