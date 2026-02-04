@@ -75,28 +75,34 @@ impl VisionEmbedder {
     }
 
     /// Embed a single image
-    pub fn embed_image(&mut self, image: &DynamicImage) -> Result<ndarray::Array1<f32>, ClipError> {
+    pub fn embed_image(&self, image: &DynamicImage) -> Result<ndarray::Array1<f32>, ClipError> {
         let embs = self.embed_images(std::slice::from_ref(image))?;
         let len = embs.len();
         Ok(embs.into_shape_with_order(len)?)
     }
 
     /// Embed a batch of images
-    pub fn embed_images(&mut self, images: &[DynamicImage]) -> Result<Array2<f32>, ClipError> {
+    ///
+    /// # Panics
+    /// Panics if the session lock is poisoned.
+    #[allow(clippy::significant_drop_tightening)]
+    pub fn embed_images(&self, images: &[DynamicImage]) -> Result<Array2<f32>, ClipError> {
         let batch_tensor = self.preprocess_batch(images)?;
 
         let input_tensor = Value::from_array(batch_tensor)?;
-        let outputs = self
-            .session
-            .session
-            .run(ort::inputs![&self.input_name => input_tensor])?;
+        let array = {
+            let mut session = self.session.session.write().unwrap();
+            let outputs = session.run(ort::inputs![&self.input_name => input_tensor])?;
 
-        let (shape, data) = outputs[0].try_extract_tensor::<f32>()?;
-        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-        let shape_usize: Vec<usize> = shape.iter().map(|&x| x as usize).collect();
-        let view = ArrayView::from_shape(IxDyn(&shape_usize), data)?;
+            let (shape, data) = outputs[0].try_extract_tensor::<f32>()?;
+            #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+            let shape_usize: Vec<usize> = shape.iter().map(|&x| x as usize).collect();
+            let view = ArrayView::from_shape(IxDyn(&shape_usize), data)?;
 
-        Ok(view.into_dimensionality::<ndarray::Ix2>()?.to_owned())
+            view.into_dimensionality::<ndarray::Ix2>()?.to_owned()
+        };
+
+        Ok(array)
     }
 
     /// Preprocess batch of images

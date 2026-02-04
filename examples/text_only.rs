@@ -7,7 +7,7 @@ use std::time::Instant;
 async fn main() -> Result<()> {
     color_eyre::install()?;
     let model_id = "RuteNL/MobileCLIP2-S2-OpenCLIP-ONNX";
-    let mut embedder = TextEmbedder::from_hf(model_id)
+    let embedder = TextEmbedder::from_hf(model_id)
         .with_execution_providers(&[
             TensorRT::default().build(),
             CUDA::default().build(),

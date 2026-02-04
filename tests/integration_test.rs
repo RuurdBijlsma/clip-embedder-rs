@@ -15,8 +15,8 @@ mod tests {
     const MOBILECLIP2_MODEL_ID: &str = "timm/MobileCLIP2-S2-OpenCLIP";
 
     fn run_model_integration_test(model_id: &str, expected_dim: usize) -> Result<()> {
-        let mut vision_embedder = VisionEmbedder::from_local_id(model_id).build()?;
-        let mut text_embedder = TextEmbedder::from_local_id(model_id).build()?;
+        let vision_embedder = VisionEmbedder::from_local_id(model_id).build()?;
+        let text_embedder = TextEmbedder::from_local_id(model_id).build()?;
 
         // Test Vision Embedding
         let img_path = PathBuf::from("assets/img/beach_rocks.jpg");
@@ -103,7 +103,7 @@ mod tests {
     #[cfg(feature = "hf-hub")]
     #[tokio::test]
     async fn test_hf() -> Result<()> {
-        let mut embedder = Clip::from_hf("RuteNL/MobileCLIP2-S2-OpenCLIP-ONNX")
+        let embedder = Clip::from_hf("RuteNL/MobileCLIP2-S2-OpenCLIP-ONNX")
             .build()
             .await?;
 

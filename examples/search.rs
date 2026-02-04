@@ -12,7 +12,7 @@ async fn main() -> Result<()> {
     println!(" - Loading Embedders...");
     let start = Instant::now();
 
-    let mut embedder = Clip::from_hf("RuteNL/MobileCLIP2-S2-OpenCLIP-ONNX")
+    let embedder = Clip::from_hf("RuteNL/MobileCLIP2-S2-OpenCLIP-ONNX")
         .with_execution_providers(&[
             TensorRT::default().build(),
             CUDA::default().build(),

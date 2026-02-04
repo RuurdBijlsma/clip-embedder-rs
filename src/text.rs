@@ -129,32 +129,36 @@ impl TextEmbedder {
     }
 
     /// Embed a single text
-    pub fn embed_text(&mut self, text: &str) -> Result<ndarray::Array1<f32>, ClipError> {
+    pub fn embed_text(&self, text: &str) -> Result<ndarray::Array1<f32>, ClipError> {
         let embs = self.embed_texts(&[text])?;
         let len = embs.len();
         Ok(embs.into_shape_with_order(len)?)
     }
 
     /// Embed a batch of texts
-    pub fn embed_texts<T: AsRef<str>>(&mut self, texts: &[T]) -> Result<Array2<f32>, ClipError> {
+    ///
+    /// # Panics
+    /// Panics if the session lock is poisoned.
+    #[allow(clippy::significant_drop_tightening)]
+    pub fn embed_texts<T: AsRef<str>>(&self, texts: &[T]) -> Result<Array2<f32>, ClipError> {
         let (ids_tensor, mask_tensor) = self.tokenize(texts)?;
 
         let ort_ids = Value::from_array(ids_tensor)?;
-        let outputs = if let Some(m_name) = &self.mask_name {
-            let ort_mask = Value::from_array(mask_tensor)?;
-            self.session
-                .session
-                .run(ort::inputs![&self.id_name => ort_ids, m_name => ort_mask])?
-        } else {
-            self.session
-                .session
-                .run(ort::inputs![&self.id_name => ort_ids])?
-        };
+        let array = {
+            let mut session = self.session.session.write().unwrap();
+            let outputs = if let Some(m_name) = &self.mask_name {
+                let ort_mask = Value::from_array(mask_tensor)?;
+                session.run(ort::inputs![&self.id_name => ort_ids, m_name => ort_mask])?
+            } else {
+                session.run(ort::inputs![&self.id_name => ort_ids])?
+            };
 
-        let (shape, data) = outputs[0].try_extract_tensor::<f32>()?;
-        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-        let shape_usize: Vec<usize> = shape.iter().map(|&x| x as usize).collect();
-        let view = ndarray::ArrayView::from_shape(ndarray::IxDyn(&shape_usize), data)?;
-        Ok(view.into_dimensionality::<ndarray::Ix2>()?.to_owned())
+            let (shape, data) = outputs[0].try_extract_tensor::<f32>()?;
+            #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+            let shape_usize: Vec<usize> = shape.iter().map(|&x| x as usize).collect();
+            let view = ndarray::ArrayView::from_shape(ndarray::IxDyn(&shape_usize), data)?;
+            view.into_dimensionality::<ndarray::Ix2>()?.to_owned()
+        };
+        Ok(array)
     }
 }

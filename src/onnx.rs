@@ -2,9 +2,10 @@ use crate::ClipError;
 use ort::ep::ExecutionProviderDispatch;
 use ort::session::{Session, builder::GraphOptimizationLevel};
 use std::path::Path;
+use std::sync::RwLock;
 
 pub struct OnnxSession {
-    pub session: Session,
+    pub session: RwLock<Session>,
 }
 
 impl OnnxSession {
@@ -19,20 +20,30 @@ impl OnnxSession {
             .with_intra_threads(threads)?
             .commit_from_file(path)?;
 
-        Ok(Self { session })
+        Ok(Self {
+            session: RwLock::new(session),
+        })
     }
 
     /// Helper to check if the model expects a specific input name
+    ///
+    /// # Panics
+    /// Panics if the session lock is poisoned.
     #[must_use]
     pub fn has_input(&self, name: &str) -> bool {
-        self.session.inputs().iter().any(|i| i.name() == name)
+        let session = self.session.read().unwrap();
+        session.inputs().iter().any(|i| i.name() == name)
     }
 
     /// Helper to find the first likely input name for a specific role
+    ///
+    /// # Panics
+    /// Panics if the session lock is poisoned.
     #[must_use]
     pub fn find_input(&self, possibilities: &[&str]) -> Option<String> {
+        let session = self.session.read().unwrap();
         for &p in possibilities {
-            if self.has_input(p) {
+            if session.inputs().iter().any(|i| i.name() == p) {
                 return Some(p.to_string());
             }
         }
