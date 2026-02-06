@@ -23,7 +23,6 @@ bon = "3.8.2"
 hf-hub = { version = "0.4.3", features = ["tokio"], optional = true }
 fast_image_resize = { version = "6.0.0", optional = true }
 
-
 [features]
 default = ["download-binaries", "copy-dylibs", "hf-hub", "fast_image_resize"]
 # crate features

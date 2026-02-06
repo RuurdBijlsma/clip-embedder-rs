@@ -136,7 +136,7 @@ to [reference Python implemenation](https://github.com/RuurdBijlsma/clip-model-r
 
 Since this is implemented with `ort`, many execution providers are available to enable hardware acceleration. You can
 enable an execution provider in this crate with cargo features. A full list of execution providers is
-available [here](https://ort.pyke.io/perf/execution-providers). 
+available [here](https://ort.pyke.io/perf/execution-providers).
 
 To enable `cuda`, add the "cuda" feature,
 and pass the CUDA execution provider when creating the embedder:
@@ -179,6 +179,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 ```
+
+## Features
+
+* _[default]_ `hf-hub` - Enable function `from_hf` to fetch a model from HuggingFace, relies on `tokio`.
+* _[default]_ `fast_image_resize` - Use fast_image_resize instead of `image` to resize image for preprocessing. Is about 77% faster,
+  but has slightly more differences than `image` compared to PIL, which affects the embedding outputs slightly.
+* `load-dynamic` - Link ONNXRuntime dynamically instead of statically. See section below, or `ort` crate features
+  documentation for more info.
+* And more `ort` forwarded features, see cargo.toml for a list of these, and
+  see [`ort` docs](https://ort.pyke.io/setup/cargo-features) for their explanation.
 
 ## Troubleshooting
 

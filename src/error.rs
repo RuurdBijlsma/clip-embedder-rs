@@ -1,3 +1,4 @@
+use fast_image_resize::{ImageBufferError, ResizeError};
 #[cfg(feature = "hf-hub")]
 use hf_hub::api::tokio::ApiError;
 use std::path::PathBuf;
@@ -30,6 +31,12 @@ pub enum ClipError {
     MissingModelFile { model_dir: PathBuf, file: String },
     #[error("Lock poison error: {0}")]
     LockPoison(String),
+    #[cfg(feature = "fast_image_resize")]
+    #[error("Resize error: {0}")]
+    Resize(#[from] ResizeError),
+    #[cfg(feature = "fast_image_resize")]
+    #[error("Resize image buffer error: {0}")]
+    ResizeImageBuffer(#[from] ImageBufferError),
 }
 
 #[cfg(feature = "hf-hub")]

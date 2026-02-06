@@ -4,7 +4,13 @@ use crate::model_manager;
 use crate::model_manager::get_default_base_folder;
 use crate::onnx::OnnxSession;
 use bon::bon;
-use image::{DynamicImage, GenericImageView, imageops::FilterType};
+#[cfg(feature = "fast_image_resize")]
+use fast_image_resize::{
+    images::Image, FilterType as FirFilterType, PixelType, ResizeAlg, ResizeOptions, Resizer,
+};
+#[cfg(not(feature = "fast_image_resize"))]
+use image::imageops::FilterType;
+use image::{DynamicImage, GenericImageView};
 use ndarray::{Array2, Array4, ArrayView, Axis, IxDyn};
 use ort::ep::ExecutionProviderDispatch;
 use ort::value::Value;
@@ -129,6 +135,64 @@ impl VisionEmbedder {
         out_view: &mut ndarray::ArrayViewMut3<f32>,
     ) -> Result<(), ClipError> {
         let size = self.config.model_cfg.vision_cfg.image_size;
+
+        #[cfg(feature = "fast_image_resize")]
+        let pixels_vec = self.resize_with_fast_image_resize(image, size)?;
+        #[cfg(feature = "fast_image_resize")]
+        let pixels = &pixels_vec;
+
+        #[cfg(not(feature = "fast_image_resize"))]
+        let resized = self.resize_with_image(image, size);
+        #[cfg(not(feature = "fast_image_resize"))]
+        let pixels = resized.as_raw();
+
+        self.normalize_pixels(pixels, size, out_view)?;
+
+        Ok(())
+    }
+
+    #[cfg(feature = "fast_image_resize")]
+    fn resize_with_fast_image_resize(
+        &self,
+        image: &DynamicImage,
+        size: u32,
+    ) -> Result<Vec<u8>, ClipError> {
+        let (width, height) = image.dimensions();
+        let rgb_image = image.to_rgb8();
+        let src_image = Image::from_vec_u8(width, height, rgb_image.into_raw(), PixelType::U8x3)?;
+
+        let mut dst_image = Image::new(size, size, PixelType::U8x3);
+
+        let resize_alg = match self.config.preprocess_cfg.interpolation.as_str() {
+            "bicubic" => ResizeAlg::Convolution(FirFilterType::CatmullRom),
+            "bilinear" => ResizeAlg::Convolution(FirFilterType::Bilinear),
+            _ => ResizeAlg::Nearest,
+        };
+
+        let mut options = ResizeOptions::new().resize_alg(resize_alg);
+
+        if self.config.preprocess_cfg.resize_mode.as_str() != "squash" {
+            #[allow(clippy::cast_precision_loss)]
+            let scale = f64::from(size) / f64::from(width.min(height));
+            let crop_w = f64::from(size) / scale;
+            let crop_h = f64::from(size) / scale;
+            let crop_x = (f64::from(width) - crop_w) / 2.0;
+            let crop_y = (f64::from(height) - crop_h) / 2.0;
+            options = options.crop(crop_x, crop_y, crop_w, crop_h);
+        }
+
+        let mut resizer = Resizer::new();
+        resizer.resize(&src_image, &mut dst_image, &options)?;
+
+        Ok(dst_image.into_vec())
+    }
+
+    #[cfg(not(feature = "fast_image_resize"))]
+    fn resize_with_image(
+        &self,
+        image: &DynamicImage,
+        size: u32,
+    ) -> image::ImageBuffer<image::Rgb<u8>, Vec<u8>> {
         let interp = match self.config.preprocess_cfg.interpolation.as_str() {
             "bicubic" => FilterType::CatmullRom,
             "bilinear" => FilterType::Triangle,
@@ -141,7 +205,7 @@ impl VisionEmbedder {
             clippy::cast_possible_truncation,
             clippy::cast_sign_loss
         )]
-        let resized = match self.config.preprocess_cfg.resize_mode.as_str() {
+        let img_resized = match self.config.preprocess_cfg.resize_mode.as_str() {
             "squash" => image.resize_exact(size, size, interp),
             _ => {
                 let (width, height) = image.dimensions();
@@ -155,13 +219,20 @@ impl VisionEmbedder {
             }
         };
 
-        let rgb = resized.to_rgb8();
+        img_resized.to_rgb8()
+    }
+
+    fn normalize_pixels(
+        &self,
+        pixels: &[u8],
+        size: u32,
+        out_view: &mut ndarray::ArrayViewMut3<f32>,
+    ) -> Result<(), ClipError> {
         let (mean, std) = (
             self.config.preprocess_cfg.mean,
             self.config.preprocess_cfg.std,
         );
 
-        let pixels = rgb.as_raw();
         let channel_len = (size as usize).pow(2);
         for c in 0..3 {
             let channel_slice = out_view.index_axis_mut(Axis(0), c);
