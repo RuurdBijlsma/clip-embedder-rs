@@ -6,7 +6,7 @@ use crate::onnx::OnnxSession;
 use bon::bon;
 #[cfg(feature = "fast_image_resize")]
 use fast_image_resize::{
-    images::Image, FilterType as FirFilterType, PixelType, ResizeAlg, ResizeOptions, Resizer,
+    FilterType as FirFilterType, PixelType, ResizeAlg, ResizeOptions, Resizer, images::Image,
 };
 #[cfg(not(feature = "fast_image_resize"))]
 use image::imageops::FilterType;
