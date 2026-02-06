@@ -39,6 +39,8 @@ $models = @(
 #    "timm/ViT-SO400M-14-SigLIP2",#✅
 #    "timm/ViT-B-16-SigLIP2-512",#✅
 #    "timm/PE-Core-bigG-14-448"#✅
+    "timm/ViT-gopt-16-SigLIP2-384",
+    "apple/DFN5B-CLIP-ViT-H-14-378"
 )
 
 $failed = @()
