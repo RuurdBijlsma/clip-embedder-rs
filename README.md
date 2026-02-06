@@ -103,14 +103,14 @@ This crate is implemented with [`ort`](https://crates.io/crates/ort), it runs ON
 ONNX Clip Embedding models to HuggingFace. To get an idea of the speed / quality tradeoff for these models, I've
 benchmarked them, and put them alongside the ImageNet zero-shot accuracy score.
 
-| Model ID                                                                                                | ImageNet Zero-Shot Accuracy | Vision Embedding (ms)* | Text Embedding (ms)* |
-|:--------------------------------------------------------------------------------------------------------|:---------------------------:|:----------------------:|:--------------------:|
-| [`RuteNL/ViT-gopt-16-SigLIP2-384-ONNX`](https://huggingface.co/RuteNL/ViT-gopt-16-SigLIP2-384-ONNX)     |            85.0%            |          2354          |         128          |
-| [`RuteNL/DFN5B-CLIP-ViT-H-14-378-ONNX`](https://huggingface.co/RuteNL/DFN5B-CLIP-ViT-H-14-378-ONNX)     |            84.4%            |          1860          |         131          |
-| [`RuteNL/ViT-SO400M-16-SigLIP2-384-ONNX`](https://huggingface.co/RuteNL/ViT-SO400M-16-SigLIP2-384-ONNX) |            84.1%            |          988           |         136          |
-| [`RuteNL/MobileCLIP2-S3-OpenCLIP-ONNX`](https://huggingface.co/RuteNL/MobileCLIP2-S3-OpenCLIP-ONNX)     |            80.7%            |          116           |          35          |
-| [`RuteNL/MobileCLIP2-S4-OpenCLIP-ONNX`](https://huggingface.co/RuteNL/MobileCLIP2-S4-OpenCLIP-ONNX)     |            79.4%            |          192           |          38          |
-| [`RuteNL/MobileCLIP2-S2-OpenCLIP-ONNX`](https://huggingface.co/RuteNL/MobileCLIP2-S2-OpenCLIP-ONNX)     |            77.2%            |           75           |          19          |
+| Model ID                                                                                              | ImageNet Zero-Shot Accuracy | Vision Embedding (ms)* | Text Embedding (ms)* |
+|:------------------------------------------------------------------------------------------------------|:---------------------------:|:----------------------:|:--------------------:|
+| [RuteNL/ViT-gopt-16-SigLIP2-384-ONNX](https://huggingface.co/RuteNL/ViT-gopt-16-SigLIP2-384-ONNX)     |            85.0%            |          2354          |         128          |
+| [RuteNL/DFN5B-CLIP-ViT-H-14-378-ONNX](https://huggingface.co/RuteNL/DFN5B-CLIP-ViT-H-14-378-ONNX)     |            84.4%            |          1860          |         131          |
+| [RuteNL/ViT-SO400M-16-SigLIP2-384-ONNX](https://huggingface.co/RuteNL/ViT-SO400M-16-SigLIP2-384-ONNX) |            84.1%            |          988           |         136          |
+| [RuteNL/MobileCLIP2-S3-OpenCLIP-ONNX](https://huggingface.co/RuteNL/MobileCLIP2-S3-OpenCLIP-ONNX)     |            80.7%            |          116           |          35          |
+| [RuteNL/MobileCLIP2-S4-OpenCLIP-ONNX](https://huggingface.co/RuteNL/MobileCLIP2-S4-OpenCLIP-ONNX)     |            79.4%            |          192           |          38          |
+| [RuteNL/MobileCLIP2-S2-OpenCLIP-ONNX](https://huggingface.co/RuteNL/MobileCLIP2-S2-OpenCLIP-ONNX)     |            77.2%            |           75           |          19          |
 
 *\* Embedding speed measured on CPU, vision embedding includes 30ms-40ms preprocessing.*
 
