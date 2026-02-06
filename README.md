@@ -33,7 +33,7 @@ use open_clip_inference::Clip;
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // `model_id` from Hugging Face -> This `model_id` is a pre-converted model.
     // Use `from_local_id` or `from_local_dir` to supply a locally stored model, not on HuggingFace.
-    let model_id = "RuteNL/MobileCLIP2-S2-OpenCLIP-ONNX";
+    let model_id = "RuteNL/MobileCLIP2-S3-OpenCLIP-ONNX";
     let clip = Clip::from_hf(model_id).build().await?;
 
     let img = image::open(Path::new("assets/img/cat_face.jpg"))?;
@@ -163,7 +163,7 @@ use std::path::Path;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let model_id = "RuteNL/MobileCLIP2-S2-OpenCLIP-ONNX";
+    let model_id = "RuteNL/MobileCLIP2-S3-OpenCLIP-ONNX";
     // Execution providers can be passed to the Clip, TextEmbedder, and VisionEmbedder constructor builders.
     // By default, an empty list is passed, which results in CPU inference.
     // When multiple are passed, each execution provider is tried in order, if one doesn't work, the next one is tried, 

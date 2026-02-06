@@ -25,7 +25,7 @@
 //!
 //! # #[tokio::main]
 //! # async fn main() -> Result<(), Box<dyn std::error::Error>> {
-//! let model_id = "RuteNL/MobileCLIP2-S2-OpenCLIP-ONNX";
+//! let model_id = "RuteNL/MobileCLIP2-S3-OpenCLIP-ONNX";
 //! let clip = Clip::from_hf(model_id).build().await?;
 //!
 //! let img = image::open(Path::new("assets/img/cat_face.jpg")).expect("Failed to load image");
@@ -48,7 +48,7 @@
 //! use std::path::Path;
 //!
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
-//! let model_id = "timm/MobileCLIP2-S2-OpenCLIP";
+//! let model_id = "timm/MobileCLIP2-S3-OpenCLIP";
 //! let vision = VisionEmbedder::from_local_id(model_id).build()?;
 //! let text = TextEmbedder::from_local_id(model_id).build()?;
 //!
@@ -86,7 +86,7 @@
 //!
 //! # #[tokio::main]
 //! # async fn main() -> Result<(), Box<dyn std::error::Error>> {
-//! let model_id = "RuteNL/MobileCLIP2-S2-OpenCLIP-ONNX";
+//! let model_id = "RuteNL/MobileCLIP2-S3-OpenCLIP-ONNX";
 //! // Execution providers can be passed to the Clip, TextEmbedder, and VisionEmbedder builders.
 //! // By default, an empty list is passed, which results in CPU inference.
 //! // When multiple are passed, each execution provider is tried in order, if one doesn't work,
@@ -124,7 +124,11 @@
 //! ONNX Clip Embedding models to `HuggingFace`:
 //!
 //! * [RuteNL/ViT-SO400M-16-SigLIP2-384-ONNX](https://huggingface.co/RuteNL/ViT-SO400M-16-SigLIP2-384-ONNX)
+//! * [RuteNL/ViT-gopt-16-SigLIP2-384-ONNX](https://huggingface.co/RuteNL/ViT-gopt-16-SigLIP2-384-ONNX)
+//! * [RuteNL/DFN5B-CLIP-ViT-H-14-378-ONNX](https://huggingface.co/RuteNL/DFN5B-CLIP-ViT-H-14-378-ONNX)
 //! * [RuteNL/MobileCLIP2-S2-OpenCLIP-ONNX](https://huggingface.co/RuteNL/MobileCLIP2-S2-OpenCLIP-ONNX)
+//! * [RuteNL/MobileCLIP2-S3-OpenCLIP-ONNX](https://huggingface.co/RuteNL/MobileCLIP2-S3-OpenCLIP-ONNX)
+//! * [RuteNL/MobileCLIP2-S4-OpenCLIP-ONNX](https://huggingface.co/RuteNL/MobileCLIP2-S4-OpenCLIP-ONNX)
 //!
 //! If you need a model that hasn't been converted to ONNX on `HuggingFace` yet, you can easily convert [any open_clip
 //! compatible model](https://huggingface.co/models?pipeline_tag=zero-shot-image-classification&library=open_clip&sort=trending)
