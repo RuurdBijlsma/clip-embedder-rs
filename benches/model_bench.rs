@@ -5,10 +5,12 @@ use ort::ep::{CUDA, CoreML, DirectML, TensorRT};
 use std::path::PathBuf;
 
 const MODELS: &[&str] = &[
-    "laion/CLIP-ViT-B-32-laion2B-s34B-b79K",
-    "timm/MobileCLIP2-S2-OpenCLIP",
-    "timm/vit_base_patch32_clip_224.openai",
-    "timm/ViT-SO400M-16-SigLIP2-384",
+    "timm/ViT-SO400M-16-SigLIP2-384", // 84.1% // 988 // 136
+    "apple/DFN5B-CLIP-ViT-H-14-378",  // 84.4% // 1860 // 131
+    "timm/MobileCLIP2-S2-OpenCLIP",   // 77.2% // 75 // 19
+    "timm/MobileCLIP2-S3-OpenCLIP",   // 80.7% // 116 // 35
+    "timm/MobileCLIP2-S4-OpenCLIP",   // 79.4% // 192 // 38
+    "timm/ViT-gopt-16-SigLIP2-384",   // 85.0% // 2354 // 128
 ];
 
 fn benchmark_models(c: &mut Criterion) {

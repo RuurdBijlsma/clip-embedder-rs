@@ -6,7 +6,7 @@ use std::time::Instant;
 #[tokio::main]
 async fn main() -> Result<()> {
     color_eyre::install()?;
-    let model_id = "RuteNL/MobileCLIP2-S4-OpenCLIP-ONNX";
+    let model_id = "RuteNL/MobileCLIP2-S3-OpenCLIP-ONNX";
     let embedder = TextEmbedder::from_hf(model_id)
         .with_execution_providers(&[
             TensorRT::default().build(),
