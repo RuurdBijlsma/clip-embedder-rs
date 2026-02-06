@@ -100,14 +100,25 @@ cargo run --example search
 ## Model support
 
 This crate is implemented with [`ort`](https://crates.io/crates/ort), it runs ONNX models. I've uploaded the following
-ONNX Clip Embedding models to HuggingFace:
+ONNX Clip Embedding models to HuggingFace. To get an idea of the speed / quality tradeoff for these models, I've
+benchmarked them, and put them alongside the ImageNet zero-shot accuracy score.
 
-* [RuteNL/ViT-SO400M-16-SigLIP2-384-ONNX](https://huggingface.co/RuteNL/ViT-SO400M-16-SigLIP2-384-ONNX)
-* [RuteNL/ViT-gopt-16-SigLIP2-384-ONNX](https://huggingface.co/RuteNL/ViT-gopt-16-SigLIP2-384-ONNX)
-* [RuteNL/DFN5B-CLIP-ViT-H-14-378-ONNX](https://huggingface.co/RuteNL/DFN5B-CLIP-ViT-H-14-378-ONNX)
-* [RuteNL/MobileCLIP2-S2-OpenCLIP-ONNX](https://huggingface.co/RuteNL/MobileCLIP2-S2-OpenCLIP-ONNX)
-* [RuteNL/MobileCLIP2-S3-OpenCLIP-ONNX](https://huggingface.co/RuteNL/MobileCLIP2-S3-OpenCLIP-ONNX)
-* [RuteNL/MobileCLIP2-S4-OpenCLIP-ONNX](https://huggingface.co/RuteNL/MobileCLIP2-S4-OpenCLIP-ONNX)
+| Model ID                                                                                                | ImageNet Zero-Shot Accuracy | Vision Embedding (ms)* | Text Embedding (ms)* |
+|:--------------------------------------------------------------------------------------------------------|:---------------------------:|:----------------------:|:--------------------:|
+| [`RuteNL/ViT-gopt-16-SigLIP2-384-ONNX`](https://huggingface.co/RuteNL/ViT-gopt-16-SigLIP2-384-ONNX)     |            85.0%            |          2354          |         128          |
+| [`RuteNL/DFN5B-CLIP-ViT-H-14-378-ONNX`](https://huggingface.co/RuteNL/DFN5B-CLIP-ViT-H-14-378-ONNX)     |            84.4%            |          1860          |         131          |
+| [`RuteNL/ViT-SO400M-16-SigLIP2-384-ONNX`](https://huggingface.co/RuteNL/ViT-SO400M-16-SigLIP2-384-ONNX) |            84.1%            |          988           |         136          |
+| [`RuteNL/MobileCLIP2-S3-OpenCLIP-ONNX`](https://huggingface.co/RuteNL/MobileCLIP2-S3-OpenCLIP-ONNX)     |            80.7%            |          116           |          35          |
+| [`RuteNL/MobileCLIP2-S4-OpenCLIP-ONNX`](https://huggingface.co/RuteNL/MobileCLIP2-S4-OpenCLIP-ONNX)     |            79.4%            |          192           |          38          |
+| [`RuteNL/MobileCLIP2-S2-OpenCLIP-ONNX`](https://huggingface.co/RuteNL/MobileCLIP2-S2-OpenCLIP-ONNX)     |            77.2%            |           75           |          19          |
+
+*\* Embedding speed measured on CPU, vision embedding includes 30ms-40ms preprocessing.*
+
+[Source for MobileCLIP ImageNet acc](https://huggingface.co/apple/MobileCLIP2-S2#checkpoints).
+
+[Source for other ImageNet accuracy numbers](https://github.com/mlfoundations/open_clip?tab=readme-ov-file#openclip).
+
+### Other models
 
 If you need a model that hasn't been converted to ONNX on HuggingFace yet, you can easily convert [any open_clip
 compatible model](https://huggingface.co/models?pipeline_tag=zero-shot-image-classification&library=open_clip&sort=trending)
