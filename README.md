@@ -34,7 +34,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // `model_id` from Hugging Face -> This `model_id` is a pre-converted model.
     // Use `from_local_id` or `from_local_dir` to supply a locally stored model, not on HuggingFace.
     let model_id = "RuteNL/MobileCLIP2-S2-OpenCLIP-ONNX";
-    let mut clip = Clip::from_hf(model_id).build().await?;
+    let clip = Clip::from_hf(model_id).build().await?;
 
     let img = image::open(Path::new("assets/img/cat_face.jpg"))?;
     let labels = &["cat", "dog", "beignet"];
@@ -70,8 +70,8 @@ use open_clip_inference::{VisionEmbedder, TextEmbedder, Clip};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let model_id = "timm/ViT-SO400M-16-SigLIP2-384";
-    let mut vision = VisionEmbedder::from_model_id(model_id).build()?;
-    let mut text = TextEmbedder::from_model_id(model_id).build()?;
+    let vision = VisionEmbedder::from_model_id(model_id).build()?;
+    let text = TextEmbedder::from_model_id(model_id).build()?;
 
     let img = image::open(Path::new("assets/img/cat_face.jpg"))?;
     let img_emb = vision.embed_image(&img)?;
@@ -157,7 +157,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // By default, an empty list is passed, which results in CPU inference.
     // When multiple are passed, each execution provider is tried in order, if one doesn't work, the next one is tried, 
     // until falling back to CPU with no options left.
-    let mut clip = Clip::from_hf(model_id)
+    let clip = Clip::from_hf(model_id)
         .with_execution_providers(&[
             TensorRT::default().build(),
             CUDA::default().build(),

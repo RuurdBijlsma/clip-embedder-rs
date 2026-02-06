@@ -26,7 +26,7 @@
 //! # #[tokio::main]
 //! # async fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! let model_id = "RuteNL/MobileCLIP2-S2-OpenCLIP-ONNX";
-//! let mut clip = Clip::from_hf(model_id).build().await?;
+//! let clip = Clip::from_hf(model_id).build().await?;
 //!
 //! let img = image::open(Path::new("assets/img/cat_face.jpg")).expect("Failed to load image");
 //! let labels = &["cat", "dog"];
@@ -49,8 +49,8 @@
 //!
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! let model_id = "timm/MobileCLIP2-S2-OpenCLIP";
-//! let mut vision = VisionEmbedder::from_local_id(model_id).build()?;
-//! let mut text = TextEmbedder::from_local_id(model_id).build()?;
+//! let vision = VisionEmbedder::from_local_id(model_id).build()?;
+//! let text = TextEmbedder::from_local_id(model_id).build()?;
 //!
 //! let img = image::open(Path::new("assets/img/cat_face.jpg")).expect("Failed to load image");
 //! let img_emb = vision.embed_image(&img)?;
@@ -91,7 +91,7 @@
 //! // By default, an empty list is passed, which results in CPU inference.
 //! // When multiple are passed, each execution provider is tried in order, if one doesn't work,
 //! // the next one is tried, until falling back to CPU with no options left.
-//! let mut clip = Clip::from_hf(model_id)
+//! let clip = Clip::from_hf(model_id)
 //!     .with_execution_providers(&[
 //!         TensorRT::default().build(),
 //!         CUDA::default().build(),
