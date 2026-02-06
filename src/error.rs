@@ -1,3 +1,4 @@
+use fast_image_resize::{ImageBufferError, ResizeError};
 #[cfg(feature = "hf-hub")]
 use hf_hub::api::tokio::ApiError;
 use std::path::PathBuf;
@@ -28,11 +29,31 @@ pub enum ClipError {
     HfHub(String),
     #[error("Missing model file '{file}' in folder '{model_dir}'")]
     MissingModelFile { model_dir: PathBuf, file: String },
+    #[error("Lock poison error: {0}")]
+    LockPoison(String),
+    #[cfg(feature = "fast_image_resize")]
+    #[error("Resize error: {0}")]
+    Resize(#[from] ResizeError),
+    #[cfg(feature = "fast_image_resize")]
+    #[error("Resize image buffer error: {0}")]
+    ResizeImageBuffer(#[from] ImageBufferError),
 }
 
 #[cfg(feature = "hf-hub")]
 impl From<ApiError> for ClipError {
     fn from(value: ApiError) -> Self {
         Self::HfHub(value.to_string())
+    }
+}
+
+impl<'a, T> From<std::sync::PoisonError<std::sync::RwLockReadGuard<'a, T>>> for ClipError {
+    fn from(err: std::sync::PoisonError<std::sync::RwLockReadGuard<'a, T>>) -> Self {
+        Self::LockPoison(err.to_string())
+    }
+}
+
+impl<'a, T> From<std::sync::PoisonError<std::sync::RwLockWriteGuard<'a, T>>> for ClipError {
+    fn from(err: std::sync::PoisonError<std::sync::RwLockWriteGuard<'a, T>>) -> Self {
+        Self::LockPoison(err.to_string())
     }
 }

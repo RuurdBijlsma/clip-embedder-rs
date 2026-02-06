@@ -1,4 +1,4 @@
-# ruff: noqa: G004, BLE001, EM101, TRY003, EM102
+# ruff: noqa: G004, BLE001, EM101, TRY003, EM102, PLR2004
 # /// script
 # requires-python = "==3.12.*"
 # dependencies = [
@@ -74,6 +74,7 @@ class HuggingFaceClient:
     def __init__(self, repo_id: str, output_dir: Path) -> None:
         self.repo_id = repo_id
         self.output_dir = output_dir
+        self.output_dir.mkdir(parents=True, exist_ok=True)
 
     def download_configs(self, files: tuple[str, ...]) -> dict[str, Path]:
         downloaded = {}
@@ -125,8 +126,8 @@ class ModelManager:
             raise ValueError("Could not determine vocab_size.") from e
 
     def get_model_config(
-            self,
-            raw_config: dict[str, Any],
+        self,
+        raw_config: dict[str, Any],
     ) -> dict[str, str | int | float | bool]:
         model_cfg = raw_config.get("model_cfg", {})
         is_siglip = "siglip" in self.repo_id.lower() or "init_logit_bias" in model_cfg
@@ -156,12 +157,12 @@ class ONNXExporter:
         self.config = config
 
     def export(
-            self,
-            model: nn.Module,
-            dummy_input: torch.Tensor,
-            output_path: Path,
-            input_name: str,
-            output_name: str,
+        self,
+        model: nn.Module,
+        dummy_input: torch.Tensor,
+        output_path: Path,
+        input_name: str,
+        output_name: str,
     ) -> None:
         model.eval()
         torch.onnx.export(
@@ -182,10 +183,7 @@ class ONNXExporter:
 
 def _modify_readme(readme_path: Path, repo_id: str) -> None:
     parts = repo_id.split("/", 1)
-    if len(parts) == 2:
-        model_name = parts[1]
-    else:
-        model_name = repo_id
+    model_name = parts[1] if len(parts) == 2 else repo_id
     new_model_id = f"{ExportConfig.hf_username}/{model_name}-ONNX"
 
     rust_code = f"""
@@ -196,9 +194,9 @@ use std::path::Path;
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {{
     let model_id = "{new_model_id}";
-    let mut clip = Clip::from_hf(model_id).build().await?;
+    let clip = Clip::from_hf(model_id).build().await?;
 
-    let img = image::open(Path::new("assets/img/cat_face.jpg")).expect("Failed to load image");
+    let img = image::open(Path::new("assets/img/cat_face.jpg")).expect("img load err");
     let texts = &[
         "A photo of a cat",
         "A photo of a dog",
@@ -219,7 +217,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {{
     header = (
         f"# ONNX export of {repo_id}\n\n"
         f"This model is an export of [{repo_id}](https://huggingface.co/{repo_id}). "
-        "It can be used with the [`open_clip_inference`](https://crates.io/crates/open_clip_inference) rust crate, or any other ONNX Runtime based implementation.\n\n"
+        "It can be used with the [`open_clip_inference`]"
+        "(https://crates.io/crates/open_clip_inference) rust crate, "
+        "or any other ONNX Runtime based implementation.\n\n"
         "## Usage with `open_clip_inference` in Rust: \n"
         f"{rust_code}\n"
         "---\n"
@@ -233,15 +233,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {{
             frontmatter = parts[1]
             # Remove any library_name lines
             frontmatter_lines = [
-                line for line in frontmatter.splitlines()
+                line
+                for line in frontmatter.splitlines()
                 if not line.strip().startswith("library_name:")
             ]
             frontmatter = "\n".join(frontmatter_lines).strip("\n")
-            new_content = (
-                f"---\n{frontmatter}\n---\n\n"
-                f"{header}\n"
-                f"{parts[2].lstrip()}"
-            )
+            new_content = f"---\n{frontmatter}\n---\n\n{header}\n{parts[2].lstrip()}"
         else:
             new_content = header + content
     else:
@@ -314,7 +311,7 @@ def main() -> None:
         type=str,
         required=True,
         help="HuggingFace repository ID (e.g., 'timm/ViT-SO400M-16-SigLIP2-384'). "
-             "Must be open_clip compatible",
+        "Must be open_clip compatible",
     )
     parser.add_argument(
         "--output",

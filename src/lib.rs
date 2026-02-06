@@ -131,8 +131,8 @@
 //! yourself, using `pull_onnx.py` from this repo.
 //!
 //! 1. Make sure you have [uv](https://docs.astral.sh/uv/).
-//! 2. Run `pull_onnx.py --id timm/vit_base_patch32_clip_224.openai`
-//! 3. After the Python script is done, you can the following in your Rust code:
+//! 2. Run `uv run pull_onnx.py --id timm/vit_base_patch32_clip_224.openai`
+//! 3. After the Python script is done, you can run the following in your Rust code:
 //!
 //! ```rust
 //! # use open_clip_inference::Clip;

@@ -31,8 +31,8 @@ use open_clip_inference::Clip;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // model_id from Hugging Face (e.g. from RuteNL/MobileCLIP2-S2-OpenCLIP) -> This is a pre-converted model.
-    // Use from_local_id or from_local_dir to supply a locally stored model, not on HuggingFace.
+    // `model_id` from Hugging Face -> This `model_id` is a pre-converted model.
+    // Use `from_local_id` or `from_local_dir` to supply a locally stored model, not on HuggingFace.
     let model_id = "RuteNL/MobileCLIP2-S2-OpenCLIP-ONNX";
     let mut clip = Clip::from_hf(model_id).build().await?;
 
@@ -103,15 +103,19 @@ This crate is implemented with [`ort`](https://crates.io/crates/ort), it runs ON
 ONNX Clip Embedding models to HuggingFace:
 
 * [RuteNL/ViT-SO400M-16-SigLIP2-384-ONNX](https://huggingface.co/RuteNL/ViT-SO400M-16-SigLIP2-384-ONNX)
+* [RuteNL/ViT-gopt-16-SigLIP2-384-ONNX](https://huggingface.co/RuteNL/ViT-gopt-16-SigLIP2-384-ONNX)
+* [RuteNL/DFN5B-CLIP-ViT-H-14-378-ONNX](https://huggingface.co/RuteNL/DFN5B-CLIP-ViT-H-14-378-ONNX)
 * [RuteNL/MobileCLIP2-S2-OpenCLIP-ONNX](https://huggingface.co/RuteNL/MobileCLIP2-S2-OpenCLIP-ONNX)
+* [RuteNL/MobileCLIP2-S3-OpenCLIP-ONNX](https://huggingface.co/RuteNL/MobileCLIP2-S3-OpenCLIP-ONNX)
+* [RuteNL/MobileCLIP2-S4-OpenCLIP-ONNX](https://huggingface.co/RuteNL/MobileCLIP2-S4-OpenCLIP-ONNX)
 
 If you need a model that hasn't been converted to ONNX on HuggingFace yet, you can easily convert [any open_clip
 compatible model](https://huggingface.co/models?pipeline_tag=zero-shot-image-classification&library=open_clip&sort=trending)
 yourself, using `pull_onnx.py` from this repo.
 
 1. Make sure you have [uv](https://docs.astral.sh/uv/).
-2. Run `pull_onnx.py --id timm/vit_base_patch32_clip_224.openai`
-3. After the Python script is done, you can the following in your Rust code:
+2. Run `uv run pull_onnx.py --id timm/vit_base_patch32_clip_224.openai`
+3. After the Python script is done, you can run the following in your Rust code:
 
 ```
 let clip = Clip::from_local_id("timm/vit_base_patch32_clip_224.openai").build()?
@@ -136,7 +140,7 @@ to [reference Python implemenation](https://github.com/RuurdBijlsma/clip-model-r
 
 Since this is implemented with `ort`, many execution providers are available to enable hardware acceleration. You can
 enable an execution provider in this crate with cargo features. A full list of execution providers is
-available [here](https://ort.pyke.io/perf/execution-providers). 
+available [here](https://ort.pyke.io/perf/execution-providers).
 
 To enable `cuda`, add the "cuda" feature,
 and pass the CUDA execution provider when creating the embedder:
@@ -179,6 +183,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 ```
+
+## Features
+
+* _[default]_ `hf-hub` - Enable function `from_hf` to fetch a model from HuggingFace, relies on `tokio`.
+* _[default]_ `fast_image_resize` - Use fast_image_resize instead of `image` to resize image for preprocessing. Is about
+  77% faster,
+  but has slightly more differences than `image` compared to PIL, which affects the embedding outputs slightly.
+* `load-dynamic` - Link ONNXRuntime dynamically instead of statically. See section below, or `ort` crate features
+  documentation for more info.
+* And more `ort` forwarded features, see cargo.toml for a list of these, and
+  see [`ort` docs](https://ort.pyke.io/setup/cargo-features) for their explanation.
 
 ## Troubleshooting
 

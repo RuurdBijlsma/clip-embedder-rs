@@ -65,7 +65,7 @@ impl Clip {
 
     /// Compare an image to a piece of text and return the raw logit.
     /// This handles embedding, dot-product, and applying logit scale/bias.
-    pub fn compare(&mut self, image: &DynamicImage, text: &str) -> Result<f32, ClipError> {
+    pub fn compare(&self, image: &DynamicImage, text: &str) -> Result<f32, ClipError> {
         let vision_emb = self.vision.embed_image(image)?;
         let text_emb = self.text.embed_text(text)?;
 
@@ -79,7 +79,7 @@ impl Clip {
     /// Classify an image against a list of text labels.
     /// Returns a list of (label, probability) pairs sorted by highest probability.
     pub fn classify<T: AsRef<str>>(
-        &mut self,
+        &self,
         image: &DynamicImage,
         labels: &[T],
     ) -> Result<Vec<(String, f32)>, ClipError> {
@@ -121,7 +121,7 @@ impl Clip {
     /// Rank a batch of images against a single text query.
     /// Returns a list of (`image_index`, `probability`) pairs sorted by highest probability.
     pub fn rank_images(
-        &mut self,
+        &self,
         images: &[DynamicImage],
         text: &str,
     ) -> Result<Vec<(usize, f32)>, ClipError> {

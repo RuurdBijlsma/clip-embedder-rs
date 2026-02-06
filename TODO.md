@@ -1,3 +1,4 @@
 # TODO:
 
-* Upload some more onnx models to huggingface
+* export popular models to onnx ✅
+* upload to huggingface

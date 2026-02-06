@@ -17,7 +17,7 @@ fn benchmark_models(c: &mut Criterion) {
     let text = "A photo of rocks";
 
     for model_id in MODELS {
-        let mut embedder = Clip::from_local_id(model_id)
+        let embedder = Clip::from_local_id(model_id)
             .with_execution_providers(&[
                 TensorRT::default().build(),
                 CUDA::default().build(),
