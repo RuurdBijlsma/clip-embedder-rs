@@ -112,7 +112,7 @@ benchmarked them, and put them alongside the ImageNet zero-shot accuracy score.
 | [RuteNL/MobileCLIP2-S4-OpenCLIP-ONNX](https://huggingface.co/RuteNL/MobileCLIP2-S4-OpenCLIP-ONNX)     |            79.4%            |          192           |          38          |
 | [RuteNL/MobileCLIP2-S2-OpenCLIP-ONNX](https://huggingface.co/RuteNL/MobileCLIP2-S2-OpenCLIP-ONNX)     |            77.2%            |           75           |          19          |
 
-*\* Embedding speed measured on CPU, vision embedding includes 30ms-40ms preprocessing.*
+*\* Embedding speed measured on my CPU, vision embedding includes 10-20 ms preprocessing.*
 
 [Source for MobileCLIP ImageNet acc](https://huggingface.co/apple/MobileCLIP2-S2#checkpoints).
 
