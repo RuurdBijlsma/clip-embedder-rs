@@ -10,6 +10,7 @@ use ort::ep::ExecutionProviderDispatch;
 use std::path::Path;
 
 /// A convenience wrapper that holds both a `VisionEmbedder` and a `TextEmbedder`.
+#[derive(Debug)]
 pub struct Clip {
     pub vision: VisionEmbedder,
     pub text: TextEmbedder,

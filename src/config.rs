@@ -1,9 +1,9 @@
 use crate::ClipError;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::Path;
 
-#[derive(Debug, Clone, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
 pub struct ModelConfig {
     #[serde(default)]
     pub tokenizer_needs_lowercase: bool,

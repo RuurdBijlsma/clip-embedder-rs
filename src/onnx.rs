@@ -4,6 +4,7 @@ use ort::session::{Session, builder::GraphOptimizationLevel};
 use std::path::Path;
 use std::sync::RwLock;
 
+#[derive(Debug)]
 pub struct OnnxSession {
     pub session: RwLock<Session>,
 }
