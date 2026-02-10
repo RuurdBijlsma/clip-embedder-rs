@@ -10,6 +10,7 @@ use ort::value::Value;
 use std::path::Path;
 use tokenizers::{PaddingParams, PaddingStrategy, Tokenizer, TruncationParams};
 
+#[derive(Debug)]
 pub struct TextEmbedder {
     pub session: OnnxSession,
     pub config: OpenClipConfig,
