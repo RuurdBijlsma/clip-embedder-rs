@@ -1,3 +1,4 @@
+#[cfg(feature = "fast_image_resize")]
 use fast_image_resize::{ImageBufferError, ResizeError};
 #[cfg(feature = "hf-hub")]
 use hf_hub::api::tokio::ApiError;
@@ -10,8 +11,8 @@ pub enum ClipError {
     Io(#[from] std::io::Error),
     #[error("JSON error: {0}")]
     Json(#[from] serde_json::Error),
-    #[error("ONNX error: {0}")]
-    Onnx(#[from] ort::Error),
+    #[error("ONNX Runtime Error: {0}")]
+    Ort(String),
     #[error("Image error: {0}")]
     Image(#[from] image::ImageError),
     #[error("Tokenization error: {0}")]
@@ -55,5 +56,11 @@ impl<'a, T> From<std::sync::PoisonError<std::sync::RwLockReadGuard<'a, T>>> for 
 impl<'a, T> From<std::sync::PoisonError<std::sync::RwLockWriteGuard<'a, T>>> for ClipError {
     fn from(err: std::sync::PoisonError<std::sync::RwLockWriteGuard<'a, T>>) -> Self {
         Self::LockPoison(err.to_string())
+    }
+}
+
+impl<T> From<ort::Error<T>> for ClipError {
+    fn from(err: ort::Error<T>) -> Self {
+        Self::Ort(err.to_string())
     }
 }
