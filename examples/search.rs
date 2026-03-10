@@ -1,11 +1,15 @@
 use color_eyre::eyre::Result;
 use open_clip_inference::Clip;
-use ort::ep::{CUDA, CoreML, DirectML, TensorRT};
+use ort::ep::CUDA;
 use std::path::PathBuf;
 use std::time::Instant;
+use tracing_subscriber::EnvFilter;
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    tracing_subscriber::fmt()
+        .with_env_filter(EnvFilter::new("info,ort=warn"))
+        .init();
     color_eyre::install()?;
 
     let img_dir = PathBuf::from("assets/img".to_owned());
@@ -13,12 +17,7 @@ async fn main() -> Result<()> {
     let start = Instant::now();
 
     let embedder = Clip::from_hf("RuteNL/MobileCLIP2-S3-OpenCLIP-ONNX")
-        .with_execution_providers(&[
-            TensorRT::default().build(),
-            CUDA::default().build(),
-            DirectML::default().build(),
-            CoreML::default().build(),
-        ])
+        .with_execution_providers(&[CUDA::default().build()])
         .build()
         .await?;
 
