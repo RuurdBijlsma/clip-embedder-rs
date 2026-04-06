@@ -39,10 +39,13 @@ $models = @(
 #    "timm/resnet50_clip.openai",#✅
 #    "timm/ViT-SO400M-14-SigLIP2",#✅
 #    "timm/ViT-B-16-SigLIP2-512",#✅
-    "timm/ViT-SO400M-16-SigLIP2-384"# ✅ 🌐
+#    "timm/ViT-SO400M-16-SigLIP2-384"# ✅ 🌐
 #    "timm/PE-Core-bigG-14-448"#✅
 #    "timm/ViT-gopt-16-SigLIP2-384",#✅ 🌐
 #    "apple/DFN5B-CLIP-ViT-H-14-378"#✅ 🌐
+#    "timm/MobileCLIP2-B-OpenCLIP",✅ 🌐
+#    "timm/MobileCLIP2-L-14-OpenCLIP",✅
+#    "timm/MobileCLIP2-S0-OpenCLIP"✅ 🌐
 )
 
 $failed = @()

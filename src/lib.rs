@@ -79,7 +79,7 @@
 //! To enable `cuda`, add the "cuda" feature,
 //! and pass the CUDA execution provider when creating the embedder:
 //!
-//! ```rust
+//! ```rust,no_run
 //! use open_clip_inference::Clip;
 //! use ort::ep::{CUDA, CoreML, DirectML, TensorRT};
 //! use std::path::Path;

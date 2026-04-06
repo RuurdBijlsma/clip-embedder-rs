@@ -15,7 +15,7 @@ use ndarray::{Array2, Array4, ArrayView, Axis, IxDyn};
 use ort::ep::ExecutionProviderDispatch;
 use ort::value::Value;
 use rayon::prelude::*;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 #[derive(Debug)]
 pub struct VisionEmbedder {
@@ -23,6 +23,7 @@ pub struct VisionEmbedder {
     pub config: OpenClipConfig,
     pub model_config: ModelConfig,
     pub input_name: String,
+    pub model_dir: PathBuf,
 }
 
 #[bon]
@@ -78,6 +79,7 @@ impl VisionEmbedder {
             config,
             model_config,
             input_name,
+            model_dir: model_dir.to_path_buf(),
         })
     }
 
