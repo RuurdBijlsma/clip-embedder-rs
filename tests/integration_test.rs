@@ -9,19 +9,15 @@ mod tests {
     #[cfg(feature = "hf-hub")]
     #[tokio::test]
     async fn test_hf() -> Result<()> {
-        dbg!(1);
         let embedder = Clip::from_hf("RuteNL/MobileCLIP2-S2-OpenCLIP-ONNX")
             .build()
             .await?;
 
-        dbg!(1);
         let img = image::open(Path::new("assets/img/cat_face.jpg")).expect("Failed to load image");
         let cat_text = "A photo of a cat";
         let texts = &[cat_text, "A photo of a dog", "A photo of a beignet"];
-        dbg!(1);
 
         let results = embedder.classify(&img, texts)?;
-        dbg!(1);
 
         // Check first result
         let (best_tag, prob) = &results[0];

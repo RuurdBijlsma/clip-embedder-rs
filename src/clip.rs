@@ -7,13 +7,14 @@ use crate::vision::VisionEmbedder;
 use bon::bon;
 use image::DynamicImage;
 use ort::ep::ExecutionProviderDispatch;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 /// A convenience wrapper that holds both a `VisionEmbedder` and a `TextEmbedder`.
 #[derive(Debug)]
 pub struct Clip {
     pub vision: VisionEmbedder,
     pub text: TextEmbedder,
+    pub model_dir: PathBuf,
 }
 
 #[bon]
@@ -57,7 +58,11 @@ impl Clip {
         let text = TextEmbedder::from_local_dir(model_dir)
             .maybe_with_execution_providers(with_execution_providers)
             .build()?;
-        Ok(Self { vision, text })
+        Ok(Self {
+            vision,
+            text,
+            model_dir: model_dir.to_path_buf(),
+        })
     }
 
     pub fn get_model_config(&self) -> ModelConfig {

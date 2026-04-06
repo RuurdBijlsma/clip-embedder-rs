@@ -7,6 +7,8 @@ use open_clip_inference::config::OpenClipConfig;
 use open_clip_inference::{TextEmbedder, VisionEmbedder};
 use ort::ep::{CUDA, ExecutionProvider};
 use std::path::Path;
+use tracing::info;
+use tracing_subscriber::EnvFilter;
 
 fn get_stats(data: &ArrayView1<f32>) -> (f32, f32) {
     let mean = data.mean().unwrap_or(0.0);
@@ -37,11 +39,15 @@ fn save_debug_image(pix: &Array4<f32>, config: &OpenClipConfig, filename: &str) 
 #[tokio::main]
 async fn main() -> Result<()> {
     color_eyre::install()?;
+    tracing_subscriber::fmt()
+        .with_env_filter(EnvFilter::new("info,ort=warn"))
+        .init();
 
+    info!("Checking CUDA availability");
     if CUDA::default().is_available()? {
-        println!("CUDA is available!");
+        info!("CUDA is available!");
     } else {
-        println!("CUDA is NOT available");
+        info!("CUDA is NOT available");
     }
 
     let img_path = Path::new("assets/img/beach_rocks.jpg");

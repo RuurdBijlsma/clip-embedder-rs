@@ -7,7 +7,7 @@ use bon::bon;
 use ndarray::Array2;
 use ort::ep::ExecutionProviderDispatch;
 use ort::value::Value;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use tokenizers::{PaddingParams, PaddingStrategy, Tokenizer, TruncationParams};
 
 #[derive(Debug)]
@@ -15,6 +15,7 @@ pub struct TextEmbedder {
     pub session: OnnxSession,
     pub config: OpenClipConfig,
     pub model_config: ModelConfig,
+    pub model_dir: PathBuf,
     tokenizer: Tokenizer,
     id_name: String,
     mask_name: Option<String>,
@@ -95,6 +96,7 @@ impl TextEmbedder {
             tokenizer,
             id_name,
             mask_name,
+            model_dir: model_dir.to_path_buf(),
         })
     }
 

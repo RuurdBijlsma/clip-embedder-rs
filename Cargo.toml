@@ -1,6 +1,6 @@
 [package]
 name = "open_clip_inference"
-version = "0.3.0"
+version = "0.3.1"
 edition = "2024"
 description = "Run OpenCLIP compatible embedding models via ONNX Runtime"
 repository = "https://github.com/RuurdBijlsma/open-clip-rs"
@@ -57,6 +57,8 @@ azure = ["ort/azure"]
 color-eyre = "0.6.5"
 criterion = { version = "0.8.1", features = ["html_reports"] }
 tokio = "1.49.0"
+tracing-subscriber = {version = "0.3.22", features = ["env-filter", "fmt"]}
+tracing = "0.1.44"
 
 [[bench]]
 name = "model_bench"
