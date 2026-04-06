@@ -17,7 +17,7 @@ use ort::value::Value;
 use rayon::prelude::*;
 use std::path::{Path, PathBuf};
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct VisionEmbedder {
     pub session: OnnxSession,
     pub config: OpenClipConfig,
@@ -81,6 +81,13 @@ impl VisionEmbedder {
             input_name,
             model_dir: model_dir.to_path_buf(),
         })
+    }
+
+    /// Create a new instance of the model
+    pub fn duplicate(&self) -> Result<Self, ClipError> {
+        Self::from_local_dir(&self.model_dir)
+            .with_execution_providers(&self.session.execution_providers)
+            .build()
     }
 
     /// Embed a single image

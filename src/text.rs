@@ -10,7 +10,7 @@ use ort::value::Value;
 use std::path::{Path, PathBuf};
 use tokenizers::{PaddingParams, PaddingStrategy, Tokenizer, TruncationParams};
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct TextEmbedder {
     pub session: OnnxSession,
     pub config: OpenClipConfig,
@@ -98,6 +98,13 @@ impl TextEmbedder {
             mask_name,
             model_dir: model_dir.to_path_buf(),
         })
+    }
+
+    /// Create a new instance of the model
+    pub fn duplicate(&self) -> Result<Self, ClipError> {
+        Self::from_local_dir(&self.model_dir)
+            .with_execution_providers(&self.session.execution_providers)
+            .build()
     }
 
     /// Tokenize a batch of texts

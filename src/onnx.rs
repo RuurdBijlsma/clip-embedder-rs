@@ -2,11 +2,12 @@ use crate::ClipError;
 use ort::ep::ExecutionProviderDispatch;
 use ort::session::{Session, builder::GraphOptimizationLevel};
 use std::path::Path;
-use std::sync::{Arc, RwLock};
+use std::sync::RwLock;
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct OnnxSession {
-    pub session: Arc<RwLock<Session>>,
+    pub session: RwLock<Session>,
+    pub execution_providers: Vec<ExecutionProviderDispatch>,
 }
 
 impl OnnxSession {
@@ -22,7 +23,8 @@ impl OnnxSession {
             .commit_from_file(path)?;
 
         Ok(Self {
-            session: Arc::new(RwLock::new(session)),
+            session: RwLock::new(session),
+            execution_providers: execution_providers.to_vec(),
         })
     }
 
