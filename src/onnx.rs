@@ -1,6 +1,6 @@
 use crate::ClipError;
 use ort::ep::ExecutionProviderDispatch;
-use ort::session::{builder::GraphOptimizationLevel, Session};
+use ort::session::{Session, builder::GraphOptimizationLevel};
 use std::path::Path;
 use std::sync::RwLock;
 
