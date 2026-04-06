@@ -10,7 +10,7 @@ use ort::ep::ExecutionProviderDispatch;
 use std::path::{Path, PathBuf};
 
 /// A convenience wrapper that holds both a `VisionEmbedder` and a `TextEmbedder`.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct Clip {
     pub vision: VisionEmbedder,
     pub text: TextEmbedder,
@@ -63,6 +63,13 @@ impl Clip {
             text,
             model_dir: model_dir.to_path_buf(),
         })
+    }
+
+    /// Create a new instance of the model
+    pub fn duplicate(&self) -> Result<Self, ClipError> {
+        Self::from_local_dir(&self.model_dir)
+            .with_execution_providers(&self.vision.session.execution_providers)
+            .build()
     }
 
     pub fn get_model_config(&self) -> ModelConfig {
