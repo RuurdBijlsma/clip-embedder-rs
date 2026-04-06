@@ -2,11 +2,11 @@ use crate::ClipError;
 use ort::ep::ExecutionProviderDispatch;
 use ort::session::{Session, builder::GraphOptimizationLevel};
 use std::path::Path;
-use std::sync::RwLock;
+use std::sync::{Arc, RwLock};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct OnnxSession {
-    pub session: RwLock<Session>,
+    pub session: Arc<RwLock<Session>>,
 }
 
 impl OnnxSession {
@@ -22,7 +22,7 @@ impl OnnxSession {
             .commit_from_file(path)?;
 
         Ok(Self {
-            session: RwLock::new(session),
+            session: Arc::new(RwLock::new(session)),
         })
     }
 

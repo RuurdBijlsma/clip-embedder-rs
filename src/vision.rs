@@ -17,7 +17,7 @@ use ort::value::Value;
 use rayon::prelude::*;
 use std::path::{Path, PathBuf};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct VisionEmbedder {
     pub session: OnnxSession,
     pub config: OpenClipConfig,
