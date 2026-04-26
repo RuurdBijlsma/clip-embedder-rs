@@ -1,0 +1,44 @@
+[package]
+publish = false
+name = "example-phi-3-vision"
+version = "0.0.0"
+edition = "2024"
+
+[dependencies]
+ort = { path = "../../" }
+anyhow = "1.0"
+image = { version = "0.25", default-features = false, features = [ "jpeg" ] }
+ndarray = "0.17"
+tokio = { version = "1", features = ["full"] }
+tokenizers = { version = "0.21", default-features = false, features = [ "onig" ] }
+tracing-subscriber = { version = "0.3", default-features = false, features = [ "env-filter", "fmt" ] }
+tracing = "0.1"
+
+ort-candle = { path = "../../backends/candle", optional = true }
+ort-tract = { path = "../../backends/tract", optional = true }
+
+[features]
+load-dynamic = [ "ort/load-dynamic" ]
+
+cuda = [ "ort/cuda" ]
+tensorrt = [ "ort/tensorrt" ]
+openvino = [ "ort/openvino" ]
+onednn = [ "ort/onednn" ]
+directml = [ "ort/directml" ]
+nnapi = [ "ort/nnapi" ]
+coreml = [ "ort/coreml" ]
+xnnpack = [ "ort/xnnpack" ]
+rocm = [ "ort/rocm" ]
+acl = [ "ort/acl" ]
+armnn = [ "ort/armnn" ]
+tvm = [ "ort/tvm" ]
+migraphx = [ "ort/migraphx" ]
+rknpu = [ "ort/rknpu" ]
+vitis = [ "ort/vitis" ]
+cann = [ "ort/cann" ]
+qnn = [ "ort/qnn" ]
+webgpu = [ "ort/webgpu" ]
+azure = [ "ort/azure" ]
+
+backend-candle = [ "ort/alternative-backend", "dep:ort-candle" ]
+backend-tract = [ "ort/alternative-backend", "dep:ort-tract" ]

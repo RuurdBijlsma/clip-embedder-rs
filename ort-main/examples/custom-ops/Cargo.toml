@@ -1,0 +1,15 @@
+[package]
+publish = false
+name = "example-custom-ops"
+version = "0.0.0"
+edition = "2024"
+
+[dependencies]
+ort = { path = "../../" }
+
+[features]
+load-dynamic = [ "ort/load-dynamic" ]
+
+[[example]]
+name = "custom-ops"
+path = "custom-ops.rs"

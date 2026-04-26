@@ -1,0 +1,14 @@
+debug/
+target/
+Cargo.lock
+
+**/*.onnx
+**/*.ort
+tools/train-data/**/checkpoint
+!tests/data/**/*
+!src/value/impl_tensor/identity.ort
+
+.venv*
+docs/.next
+docs/node_modules
+docs/out/

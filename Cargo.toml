@@ -10,7 +10,7 @@ categories = ["computer-vision"]
 exclude = ["assets", "benches", "examples", "scripts", "tests"]
 
 [dependencies]
-ort = { version = "2.0.0-rc.12", features = ["ndarray"] }
+ort = { path = "ort-main", features = ["ndarray"] }
 ndarray = { version = "0.17.2", features = ["rayon"] }
 image = "0.25.9"
 tokenizers = { version = "0.22.2" }

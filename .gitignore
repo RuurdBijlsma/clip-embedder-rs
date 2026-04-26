@@ -4,3 +4,4 @@ target
 pyproject.toml
 uv.lock
 .venv
+ort-maincopy
