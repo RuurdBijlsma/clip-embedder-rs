@@ -1,5 +1,6 @@
 use color_eyre::eyre::Result;
 use open_clip_inference::Clip;
+use ort::ep::CUDA;
 use std::path::PathBuf;
 use std::time::Instant;
 use tracing_subscriber::EnvFilter;
@@ -16,6 +17,7 @@ async fn main() -> Result<()> {
     let start = Instant::now();
 
     let embedder = Clip::from_hf("RuteNL/MobileCLIP2-S3-OpenCLIP-ONNX")
+        .with_execution_providers(&[CUDA::default().build()])
         .build()
         .await?;
 

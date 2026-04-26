@@ -21,7 +21,6 @@ impl OnnxSession {
             .with_optimization_level(GraphOptimizationLevel::Level3)?
             .with_intra_threads(threads)?
             .commit_from_file(path)?;
-        dbg!("IT DOESNT GET HERE");
 
         Ok(Self {
             session: RwLock::new(session),
